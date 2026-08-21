@@ -169,6 +169,11 @@
         <td>{{ manifest.capture.page_title or "—" }}</td></tr>
     <tr><th>{% block lbl_status %}HTTP status{% endblock %}</th>
         <td>{{ manifest.capture.http_status }} {{ manifest.capture.http_reason }}</td></tr>
+    {% if manifest.capture.ssl_verified == false %}
+    <tr><th>{% block lbl_ssl_warn %}SSL verification{% endblock %}</th>
+        <td><span class="badge badge-warn">{% block lbl_ssl_unverified %}Chain unverified — captured without certificate validation{% endblock %}</span>
+        {% if manifest.capture.ssl_error %}<br><small style="font-size:8pt;color:#555;">{{ manifest.capture.ssl_error[:200] }}</small>{% endif %}</td></tr>
+    {% endif %}
     <tr><th>{% block lbl_content_type %}Content-Type{% endblock %}</th>
         <td>{{ manifest.capture.content_type }}</td></tr>
     <tr><th>{% block lbl_elapsed %}Response time{% endblock %}</th>

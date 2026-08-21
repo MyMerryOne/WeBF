@@ -15,9 +15,20 @@ def capture_http(url: str, timeout: int = 30) -> dict[str, Any]:
     session.headers.update({"User-Agent": TOOL_UA})
 
     redirect_chain: list[dict] = []
+    ssl_verified = True
+    ssl_error: str | None = None
 
     start_ts = time.time()
-    response = session.get(url, timeout=timeout, allow_redirects=True, stream=True)
+    try:
+        response = session.get(url, timeout=timeout, allow_redirects=True,
+                               stream=True, verify=True)
+    except requests.exceptions.SSLError as exc:
+        ssl_verified = False
+        ssl_error = str(exc)
+        session2 = requests.Session()
+        session2.headers.update({"User-Agent": TOOL_UA})
+        response = session2.get(url, timeout=timeout, allow_redirects=True,
+                                stream=True, verify=False)
     elapsed_ms = int((time.time() - start_ts) * 1000)
 
     for r in response.history:
@@ -32,7 +43,7 @@ def capture_http(url: str, timeout: int = 30) -> dict[str, Any]:
 
     request_headers = dict(response.request.headers)
 
-    return {
+    result = {
         "final_url": response.url,
         "status_code": response.status_code,
         "reason": response.reason,
@@ -45,7 +56,11 @@ def capture_http(url: str, timeout: int = 30) -> dict[str, Any]:
         "content_length_header": response.headers.get("Content-Length"),
         "actual_body_bytes": len(raw_body),
         "raw_body": raw_body,
+        "ssl_verified": ssl_verified,
     }
+    if ssl_error:
+        result["ssl_error"] = ssl_error
+    return result
 
 
 def build_raw_http_bytes(result: dict[str, Any]) -> bytes:

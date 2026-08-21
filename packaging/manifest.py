@@ -37,6 +37,8 @@ def build_manifest(
             "content_type": http_result.get("content_type", ""),
             "redirect_chain": http_result.get("redirect_chain", []),
             "elapsed_ms": http_result.get("elapsed_ms"),
+            "ssl_verified": http_result.get("ssl_verified", True),
+            "ssl_error": http_result.get("ssl_error"),
         },
         "timing": {
             "capture_start_utc": start_time_utc.isoformat(),
