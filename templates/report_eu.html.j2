@@ -1,0 +1,10 @@
+{% extends "report_base.html.j2" %}
+
+{% block doc_title %}Web Forensic Capture Report — EU / eIDAS{% endblock %}
+{% block doc_subtitle %}WeBF-ForensicCapture v{{ manifest.tool.version }} · eIDAS Regulation (EU) 910/2014{% endblock %}
+{% block notice %}
+This document constitutes a forensic record of a public web page captured for evidentiary purposes
+under Regulation (EU) No 910/2014 (eIDAS). Integrity is guaranteed by SHA-256/SHA-512 cryptographic
+hashes and an RFC 3161 qualified electronic time stamp. The electronic document shall not be denied
+admissibility as evidence (eIDAS Art. 41).
+{% endblock %}

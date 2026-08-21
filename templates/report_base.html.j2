@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="{{ lang | default('en') }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #111;
+    background: #fff;
+    padding: 0;
+  }
+  @media print {
+    body { padding: 0; }
+    .no-print { display: none; }
+    .page-break { page-break-before: always; }
+  }
+  .page { max-width: 210mm; margin: 0 auto; padding: 18mm 20mm; }
+  /* Header */
+  .header {
+    border-bottom: 3px solid #1a3c6e;
+    padding-bottom: 10px;
+    margin-bottom: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .header-left h1 { font-size: 16pt; color: #1a3c6e; font-weight: 700; }
+  .header-left h2 { font-size: 11pt; color: #444; font-weight: 400; margin-top: 2px; }
+  .header-right {
+    text-align: right;
+    font-size: 9pt;
+    color: #555;
+    line-height: 1.8;
+  }
+  /* Confidentiality notice */
+  .banner {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    padding: 8px 12px;
+    margin-bottom: 18px;
+    font-size: 9.5pt;
+    color: #555;
+  }
+  /* Sections */
+  h3 {
+    font-size: 12pt;
+    color: #1a3c6e;
+    border-bottom: 1px solid #c8d8f0;
+    padding-bottom: 4px;
+    margin: 18px 0 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 10px;
+    font-size: 9.5pt;
+  }
+  th, td {
+    padding: 5px 8px;
+    border: 1px solid #dde4ef;
+    vertical-align: top;
+  }
+  th {
+    background: #eef2fa;
+    font-weight: 600;
+    color: #1a3c6e;
+    width: 32%;
+    text-align: left;
+  }
+  tr:nth-child(even) td { background: #f8faff; }
+  /* Hashes */
+  .hash {
+    font-family: "Courier New", monospace;
+    font-size: 8pt;
+    word-break: break-all;
+    background: #f4f6fa;
+    padding: 2px 4px;
+    border-radius: 2px;
+  }
+  /* Status badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 600;
+    font-size: 9pt;
+  }
+  .badge-ok { background: #d4edda; color: #155724; }
+  .badge-warn { background: #fff3cd; color: #856404; }
+  .badge-err { background: #f8d7da; color: #721c24; }
+  /* Legal references */
+  .legal-list { padding-left: 18px; }
+  .legal-list li { margin-bottom: 4px; font-size: 9.5pt; }
+  /* Chain of custody */
+  .custody-box {
+    border: 1px solid #1a3c6e;
+    padding: 12px 16px;
+    margin-top: 18px;
+    font-size: 9.5pt;
+  }
+  .custody-box p { margin-bottom: 6px; }
+  .sig-line {
+    margin-top: 24px;
+    border-top: 1px solid #333;
+    width: 60%;
+    padding-top: 4px;
+    font-size: 9pt;
+    color: #444;
+  }
+  /* Footer */
+  .footer {
+    margin-top: 24px;
+    border-top: 1px solid #ccc;
+    padding-top: 8px;
+    font-size: 8pt;
+    color: #777;
+    text-align: center;
+  }
+  .artifact-table td:first-child {
+    font-family: "Courier New", monospace;
+    font-size: 8pt;
+    word-break: break-all;
+  }
+  .redirect-chain { font-size: 9pt; }
+  .redirect-chain li { margin-bottom: 2px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1>{% block doc_title %}Web Forensic Capture Report{% endblock %}</h1>
+      <h2>{% block doc_subtitle %}WeBF-ForensicCapture v{{ manifest.tool.version }}{% endblock %}</h2>
+    </div>
+    <div class="header-right">
+      <strong>{% block case_label %}Case{% endblock %}:</strong> {{ manifest.operator.case_reference or "—" }}<br>
+      <strong>{% block date_label %}Date (UTC){% endblock %}:</strong> {{ manifest.timing.capture_start_utc[:10] }}<br>
+      <strong>{% block time_label %}Time (UTC){% endblock %}:</strong> {{ manifest.timing.capture_start_utc[11:19] }}<br>
+      <strong>{% block operator_label %}Operator{% endblock %}:</strong> {{ manifest.operator.name }}
+    </div>
+  </div>
+
+  <!-- Notice -->
+  <div class="banner">
+    {% block notice %}
+    This document constitutes a forensic record of a public web page captured for evidentiary purposes.
+    Integrity is guaranteed by SHA-256/SHA-512 cryptographic hashes and an RFC 3161 trusted timestamp.
+    {% endblock %}
+  </div>
+
+  <!-- 1. Capture details -->
+  <h3>{% block section_capture %}1. Capture Details{% endblock %}</h3>
+  <table>
+    <tr><th>{% block lbl_url %}Target URL{% endblock %}</th>
+        <td><a href="{{ manifest.capture.target_url }}">{{ manifest.capture.target_url }}</a></td></tr>
+    <tr><th>{% block lbl_final_url %}Final URL (after redirects){% endblock %}</th>
+        <td>{{ manifest.capture.final_url }}</td></tr>
+    <tr><th>{% block lbl_title %}Page title{% endblock %}</th>
+        <td>{{ manifest.capture.page_title or "—" }}</td></tr>
+    <tr><th>{% block lbl_status %}HTTP status{% endblock %}</th>
+        <td>{{ manifest.capture.http_status }} {{ manifest.capture.http_reason }}</td></tr>
+    <tr><th>{% block lbl_content_type %}Content-Type{% endblock %}</th>
+        <td>{{ manifest.capture.content_type }}</td></tr>
+    <tr><th>{% block lbl_elapsed %}Response time{% endblock %}</th>
+        <td>{{ manifest.capture.elapsed_ms }} ms</td></tr>
+    {% if manifest.capture.redirect_chain %}
+    <tr><th>{% block lbl_redirects %}Redirect chain{% endblock %}</th>
+        <td>
+          <ol class="redirect-chain">
+          {% for r in manifest.capture.redirect_chain %}
+            <li>{{ r.status_code }} → {{ r.url }}</li>
+          {% endfor %}
+          </ol>
+        </td></tr>
+    {% endif %}
+    <tr><th>{% block lbl_start %}Capture start (UTC){% endblock %}</th>
+        <td>{{ manifest.timing.capture_start_utc }}</td></tr>
+    <tr><th>{% block lbl_end %}Capture end (UTC){% endblock %}</th>
+        <td>{{ manifest.timing.capture_end_utc }}</td></tr>
+    <tr><th>{% block lbl_jurisdiction %}Jurisdiction profile{% endblock %}</th>
+        <td>{{ profile.name }}</td></tr>
+  </table>
+
+  <!-- 2. Operator -->
+  <h3>{% block section_operator %}2. Operator Information{% endblock %}</h3>
+  <table>
+    <tr><th>{% block lbl_op_name %}Name{% endblock %}</th>
+        <td>{{ manifest.operator.name }}</td></tr>
+    <tr><th>{% block lbl_op_case %}Case reference{% endblock %}</th>
+        <td>{{ manifest.operator.case_reference or "—" }}</td></tr>
+    {% block extra_operator_rows %}{% endblock %}
+    <tr><th>{% block lbl_op_notes %}Notes{% endblock %}</th>
+        <td>{{ manifest.operator.notes or "—" }}</td></tr>
+  </table>
+
+  <!-- 3. Network information -->
+  <h3>{% block section_network %}3. Network Information{% endblock %}</h3>
+  <table>
+    <tr><th>{% block lbl_hostname %}Hostname{% endblock %}</th>
+        <td>{{ manifest.network.hostname }}</td></tr>
+    <tr><th>{% block lbl_dns_a %}DNS A records{% endblock %}</th>
+        <td>{{ manifest.network.dns.A | join(", ") or "—" }}</td></tr>
+    <tr><th>{% block lbl_dns_aaaa %}DNS AAAA records{% endblock %}</th>
+        <td>{{ manifest.network.dns.AAAA | join(", ") or "—" }}</td></tr>
+    <tr><th>{% block lbl_dns_ns %}DNS NS records{% endblock %}</th>
+        <td>{{ manifest.network.dns.NS | join(", ") or "—" }}</td></tr>
+    {% if manifest.network.tls %}
+    <tr><th>{% block lbl_tls_subject %}TLS subject{% endblock %}</th>
+        <td>{{ manifest.network.tls.subject }}</td></tr>
+    <tr><th>{% block lbl_tls_issuer %}TLS issuer{% endblock %}</th>
+        <td>{{ manifest.network.tls.issuer }}</td></tr>
+    <tr><th>{% block lbl_tls_valid %}TLS validity{% endblock %}</th>
+        <td>{{ manifest.network.tls.not_valid_before }} → {{ manifest.network.tls.not_valid_after }}</td></tr>
+    <tr><th>{% block lbl_tls_fp %}TLS SHA-256 fingerprint{% endblock %}</th>
+        <td><span class="hash">{{ manifest.network.tls.sha256_fingerprint }}</span></td></tr>
+    {% endif %}
+    {% if manifest.network.whois_parsed %}
+    <tr><th>{% block lbl_whois_reg %}WHOIS registrar{% endblock %}</th>
+        <td>{{ manifest.network.whois_parsed.registrar or "—" }}</td></tr>
+    <tr><th>{% block lbl_whois_created %}WHOIS created{% endblock %}</th>
+        <td>{{ manifest.network.whois_parsed.creation_date or "—" }}</td></tr>
+    {% endif %}
+  </table>
+
+  <!-- 4. Timestamp -->
+  <h3>{% block section_timestamp %}4. RFC 3161 Trusted Timestamp{% endblock %}</h3>
+  <table>
+    <tr><th>{% block lbl_ts_tsa %}Timestamp Authority (TSA){% endblock %}</th>
+        <td>{{ profile.tsa_name }} — {{ timestamp.tsa_url or manifest.tsa_url }}</td></tr>
+    <tr><th>{% block lbl_ts_status %}TSA response status{% endblock %}</th>
+        <td>
+          {% if timestamp.status == "granted" %}
+            <span class="badge badge-ok">GRANTED</span>
+          {% else %}
+            <span class="badge badge-err">{{ timestamp.status | upper }}</span>
+          {% endif %}
+        </td></tr>
+    {% if timestamp.gen_time %}
+    <tr><th>{% block lbl_ts_time %}Timestamp (TSA clock){% endblock %}</th>
+        <td>{{ timestamp.gen_time }}</td></tr>
+    {% endif %}
+    {% if timestamp.serial_number %}
+    <tr><th>{% block lbl_ts_serial %}Token serial number{% endblock %}</th>
+        <td><span class="hash">{{ timestamp.serial_number }}</span></td></tr>
+    {% endif %}
+    <tr><th>{% block lbl_ts_hash %}Hashed data (SHA-256 of manifest){% endblock %}</th>
+        <td><span class="hash">{{ timestamp.data_hash_sha256 }}</span></td></tr>
+    <tr><th>{% block lbl_ts_algo %}Hash algorithm{% endblock %}</th>
+        <td>SHA-256</td></tr>
+  </table>
+
+  <!-- 5. Artifact hashes -->
+  <h3>{% block section_hashes %}5. Artifact Integrity (SHA-256){% endblock %}</h3>
+  <table class="artifact-table">
+    <tr>
+      <th style="width:35%">{% block lbl_file %}File{% endblock %}</th>
+      <th>{% block lbl_sha256 %}SHA-256{% endblock %}</th>
+    </tr>
+    {% for name, hashes in manifest.artifacts.items() | sort %}
+    <tr>
+      <td>{{ name }}</td>
+      <td><span class="hash">{{ hashes.sha256 }}</span></td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <!-- 6. Legal framework -->
+  <h3>{% block section_legal %}6. Legal Framework{% endblock %}</h3>
+  <ul class="legal-list">
+    {% for ref in profile.legal_references %}
+    <li>{{ ref }}</li>
+    {% endfor %}
+  </ul>
+  <p style="margin-top:10px; font-size:9.5pt;">{{ profile.notes }}</p>
+
+  {% block extra_sections %}{% endblock %}
+
+  <!-- 7. Chain of custody -->
+  <div class="page-break"></div>
+  <h3>{% block section_custody %}7. Chain of Custody{% endblock %}</h3>
+  <div class="custody-box">
+    <p>{% block custody_intro %}
+    I, <strong>{{ manifest.operator.name }}</strong>, hereby declare that the web content identified above
+    was captured on <strong>{{ manifest.timing.capture_start_utc }}</strong> (UTC) using
+    <strong>{{ manifest.tool.name }} v{{ manifest.tool.version }}</strong> in accordance with the
+    evidentiary standards of the <strong>{{ profile.name }}</strong> jurisdiction profile.
+    {% endblock %}</p>
+    <p>{% block custody_integrity %}
+    The integrity of the captured content is attested by the SHA-256 and SHA-512 hash values recorded
+    in <code>manifest.json</code> and independently confirmed by the RFC 3161 timestamp token issued by
+    <strong>{{ profile.tsa_name }}</strong> at <strong>{{ timestamp.gen_time or "—" }}</strong>.
+    {% endblock %}</p>
+    {% block custody_extra %}{% endblock %}
+    <div class="sig-line">
+      {% block sig_line %}Operator signature / date{% endblock %}
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    WeBF-ForensicCapture v{{ manifest.tool.version }} &nbsp;|&nbsp;
+    Package generated: {{ manifest.timing.capture_end_utc }} UTC &nbsp;|&nbsp;
+    Primary evidence: <code>capture/page.warc.gz</code> (ISO 28500:2017)
+  </div>
+
+</div>
+</body>
+</html>

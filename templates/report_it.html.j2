@@ -1,0 +1,106 @@
+{% extends "report_base.html.j2" %}
+
+{% set lang = "it" %}
+{% block doc_title %}Verbale di Acquisizione di Contenuto Web{% endblock %}
+{% block doc_subtitle %}WeBF-ForensicCapture v{{ manifest.tool.version }} · D.Lgs. 82/2005 (CAD) / eIDAS{% endblock %}
+
+{% block case_label %}Riferimento{% endblock %}
+{% block date_label %}Data (UTC){% endblock %}
+{% block time_label %}Ora (UTC){% endblock %}
+{% block operator_label %}Operatore{% endblock %}
+
+{% block notice %}
+Il presente documento costituisce verbale di acquisizione forense di una pagina web pubblica
+ai sensi del D.Lgs. 82/2005 (Codice dell'Amministrazione Digitale) e del Regolamento (UE) 910/2014 (eIDAS).
+L'integrità è garantita da hash crittografici SHA-256/SHA-512 e da una marca temporale qualificata
+rilasciata da un Prestatore di Servizi Fiduciari accreditato AgID (art. 20 CAD; art. 41–42 eIDAS).
+{% endblock %}
+
+{% block section_capture %}1. Dettagli dell'Acquisizione{% endblock %}
+{% block lbl_url %}URL destinazione{% endblock %}
+{% block lbl_final_url %}URL finale (dopo redirect){% endblock %}
+{% block lbl_title %}Titolo della pagina{% endblock %}
+{% block lbl_status %}Stato HTTP{% endblock %}
+{% block lbl_content_type %}Content-Type{% endblock %}
+{% block lbl_elapsed %}Tempo di risposta{% endblock %}
+{% block lbl_redirects %}Catena di redirect{% endblock %}
+{% block lbl_start %}Inizio acquisizione (UTC){% endblock %}
+{% block lbl_end %}Fine acquisizione (UTC){% endblock %}
+{% block lbl_jurisdiction %}Profilo giurisdizionale{% endblock %}
+
+{% block section_operator %}2. Dati dell'Operatore{% endblock %}
+{% block lbl_op_name %}Nome e cognome{% endblock %}
+{% block lbl_op_case %}Riferimento caso{% endblock %}
+{% block extra_operator_rows %}
+{% if manifest.operator.operator_role %}
+<tr><th>Qualifica / Ruolo</th><td>{{ manifest.operator.operator_role }}</td></tr>
+{% endif %}
+{% if manifest.operator.operator_cf %}
+<tr><th>Codice Fiscale</th><td>{{ manifest.operator.operator_cf }}</td></tr>
+{% endif %}
+{% endblock %}
+{% block lbl_op_notes %}Note{% endblock %}
+
+{% block section_network %}3. Informazioni di Rete{% endblock %}
+{% block lbl_hostname %}Hostname{% endblock %}
+{% block lbl_dns_a %}Record DNS A{% endblock %}
+{% block lbl_dns_aaaa %}Record DNS AAAA{% endblock %}
+{% block lbl_dns_ns %}Record DNS NS{% endblock %}
+{% block lbl_tls_subject %}Soggetto certificato TLS{% endblock %}
+{% block lbl_tls_issuer %}Emittente certificato TLS{% endblock %}
+{% block lbl_tls_valid %}Validità certificato TLS{% endblock %}
+{% block lbl_tls_fp %}Impronta SHA-256 certificato TLS{% endblock %}
+{% block lbl_whois_reg %}WHOIS registrar{% endblock %}
+{% block lbl_whois_created %}WHOIS data creazione{% endblock %}
+
+{% block section_timestamp %}4. Marca Temporale RFC 3161{% endblock %}
+{% block lbl_ts_tsa %}Autorità di Marcatura Temporale (TSA){% endblock %}
+{% block lbl_ts_status %}Risposta TSA{% endblock %}
+{% block lbl_ts_time %}Marca temporale (orologio TSA){% endblock %}
+{% block lbl_ts_serial %}Numero seriale token{% endblock %}
+{% block lbl_ts_hash %}Hash firmato (SHA-256 del manifest){% endblock %}
+{% block lbl_ts_algo %}Algoritmo di hashing{% endblock %}
+
+{% block section_hashes %}5. Integrità degli Artefatti (SHA-256){% endblock %}
+{% block lbl_file %}File{% endblock %}
+{% block lbl_sha256 %}SHA-256{% endblock %}
+
+{% block section_legal %}6. Quadro Normativo di Riferimento{% endblock %}
+
+{% block extra_sections %}
+  <h3>7. Dichiarazione dell'Operatore (Verbale)</h3>
+  <div class="custody-box" style="margin-top:10px; border-color:#333;">
+    <p>
+      Il sottoscritto <strong>{{ manifest.operator.name }}</strong>
+      {% if manifest.operator.operator_role %}({{ manifest.operator.operator_role }}){% endif %}
+      dichiara di aver eseguito personalmente l'acquisizione forense della pagina web
+      identificata nella sezione 1 del presente verbale, in data
+      <strong>{{ manifest.timing.capture_start_utc[:10] }}</strong> alle ore
+      <strong>{{ manifest.timing.capture_start_utc[11:19] }} UTC</strong>,
+      utilizzando il software <strong>{{ manifest.tool.name }} v{{ manifest.tool.version }}</strong>.
+    </p>
+    <p style="margin-top:8px;">
+      L'acquisizione è avvenuta senza alterazione dei contenuti originali. L'integrità del materiale
+      acquisito è attestata dagli hash crittografici SHA-256 e SHA-512 contenuti nel file
+      <code>manifest.json</code> e dalla marca temporale qualificata rilasciata da
+      <strong>{{ profile.tsa_name }}</strong> in data <strong>{{ timestamp.gen_time or "—" }}</strong>.
+    </p>
+    <div class="sig-line">
+      Firma dell'Operatore / Data e luogo
+    </div>
+  </div>
+{% endblock %}
+
+{% block section_custody %}8. Catena di Custodia{% endblock %}
+{% block custody_intro %}
+Io, <strong>{{ manifest.operator.name }}</strong>, dichiaro che il contenuto web identificato sopra
+è stato acquisito il <strong>{{ manifest.timing.capture_start_utc }}</strong> (UTC) tramite
+<strong>{{ manifest.tool.name }} v{{ manifest.tool.version }}</strong> in conformità al
+D.Lgs. 82/2005 (CAD) e al profilo giurisdizionale <strong>{{ profile.name }}</strong>.
+{% endblock %}
+{% block custody_integrity %}
+L'integrità del contenuto acquisito è attestata dagli hash SHA-256 e SHA-512 registrati nel file
+<code>manifest.json</code> e confermata dalla marca temporale qualificata rilasciata da
+<strong>{{ profile.tsa_name }}</strong> in data <strong>{{ timestamp.gen_time or "—" }}</strong>.
+{% endblock %}
+{% block sig_line %}Firma dell'Operatore / Data e luogo{% endblock %}

@@ -1,0 +1,69 @@
+"""Build the JSON manifest — the root-of-trust for the evidence package."""
+import json
+import datetime
+from typing import Any
+
+TOOL_VERSION = "1.0.0"
+TOOL_NAME = "WeBF-ForensicCapture"
+
+
+def build_manifest(
+    url: str,
+    operator: str,
+    case_ref: str,
+    notes: str,
+    jurisdiction_id: str,
+    start_time_utc: datetime.datetime,
+    end_time_utc: datetime.datetime,
+    http_result: dict[str, Any],
+    network_result: dict[str, Any],
+    browser_result: dict[str, Any] | None,
+    artifact_hashes: dict[str, dict[str, str]],
+    tsa_url: str,
+    extra_operator_fields: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    manifest: dict[str, Any] = {
+        "schema_version": "1.0",
+        "tool": {
+            "name": TOOL_NAME,
+            "version": TOOL_VERSION,
+        },
+        "capture": {
+            "target_url": url,
+            "final_url": http_result.get("final_url", url),
+            "page_title": (browser_result or {}).get("page_title", ""),
+            "http_status": http_result.get("status_code"),
+            "http_reason": http_result.get("reason", ""),
+            "content_type": http_result.get("content_type", ""),
+            "redirect_chain": http_result.get("redirect_chain", []),
+            "elapsed_ms": http_result.get("elapsed_ms"),
+        },
+        "timing": {
+            "capture_start_utc": start_time_utc.isoformat(),
+            "capture_end_utc": end_time_utc.isoformat(),
+            "timezone": "UTC",
+        },
+        "operator": {
+            "name": operator,
+            "case_reference": case_ref,
+            "notes": notes,
+            **(extra_operator_fields or {}),
+        },
+        "jurisdiction": jurisdiction_id,
+        "tsa_url": tsa_url,
+        "network": {
+            "hostname": network_result.get("hostname", ""),
+            "dns": network_result.get("dns", {}),
+            "tls": network_result.get("tls"),
+            "whois_parsed": network_result.get("whois", {}).get("parsed", {}),
+        },
+        "response_headers": http_result.get("response_headers", {}),
+        "artifacts": artifact_hashes,
+        "primary_evidence": "capture/page.warc.gz",
+        "hash_algorithms": ["sha256", "sha512"],
+    }
+    return manifest
+
+
+def serialize_manifest(manifest: dict[str, Any]) -> bytes:
+    return json.dumps(manifest, indent=2, ensure_ascii=False).encode("utf-8")

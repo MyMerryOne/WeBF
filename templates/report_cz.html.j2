@@ -1,0 +1,75 @@
+{% extends "report_base.html.j2" %}
+
+{% set lang = "cs" %}
+{% block doc_title %}Protokol o Forenzním Zachycení Webového Obsahu{% endblock %}
+{% block doc_subtitle %}WeBF-ForensicCapture v{{ manifest.tool.version }} · Zákon č. 297/2016 Sb. / eIDAS{% endblock %}
+
+{% block case_label %}Referenční č.{% endblock %}
+{% block date_label %}Datum (UTC){% endblock %}
+{% block time_label %}Čas (UTC){% endblock %}
+{% block operator_label %}Operátor{% endblock %}
+
+{% block notice %}
+Tento dokument je forenzní záznam o zachycení veřejné webové stránky pro účely dokazování
+podle zákona č. 297/2016 Sb. o službách vytvářejících důvěru pro elektronické transakce
+a nařízení (EU) č. 910/2014 (eIDAS). Integrita je zaručena kryptografickými hashy SHA-256/SHA-512
+a kvalifikovaným elektronickým časovým razítkem RFC 3161. Elektronickému dokumentu nelze
+odepřít přípustnost jako důkazu (čl. 41 eIDAS).
+{% endblock %}
+
+{% block section_capture %}1. Podrobnosti Zachycení{% endblock %}
+{% block lbl_url %}Cílová URL{% endblock %}
+{% block lbl_final_url %}Konečná URL (po přesměrování){% endblock %}
+{% block lbl_title %}Název stránky{% endblock %}
+{% block lbl_status %}HTTP stav{% endblock %}
+{% block lbl_content_type %}Content-Type{% endblock %}
+{% block lbl_elapsed %}Doba odezvy{% endblock %}
+{% block lbl_redirects %}Řetěz přesměrování{% endblock %}
+{% block lbl_start %}Začátek zachycení (UTC){% endblock %}
+{% block lbl_end %}Konec zachycení (UTC){% endblock %}
+{% block lbl_jurisdiction %}Jurisdikční profil{% endblock %}
+
+{% block section_operator %}2. Informace o Operátorovi{% endblock %}
+{% block lbl_op_name %}Jméno a příjmení{% endblock %}
+{% block lbl_op_case %}Referenční číslo případu{% endblock %}
+{% block lbl_op_notes %}Poznámky{% endblock %}
+
+{% block section_network %}3. Síťové Informace{% endblock %}
+{% block lbl_hostname %}Hostname{% endblock %}
+{% block lbl_dns_a %}DNS záznamy A{% endblock %}
+{% block lbl_dns_aaaa %}DNS záznamy AAAA{% endblock %}
+{% block lbl_dns_ns %}DNS záznamy NS{% endblock %}
+{% block lbl_tls_subject %}Předmět certifikátu TLS{% endblock %}
+{% block lbl_tls_issuer %}Vydavatel certifikátu TLS{% endblock %}
+{% block lbl_tls_valid %}Platnost certifikátu TLS{% endblock %}
+{% block lbl_tls_fp %}Otisk SHA-256 certifikátu TLS{% endblock %}
+{% block lbl_whois_reg %}WHOIS registrátor{% endblock %}
+{% block lbl_whois_created %}WHOIS datum registrace{% endblock %}
+
+{% block section_timestamp %}4. Kvalifikované Časové Razítko RFC 3161{% endblock %}
+{% block lbl_ts_tsa %}Autorita časových razítek (TSA){% endblock %}
+{% block lbl_ts_status %}Odpověď TSA{% endblock %}
+{% block lbl_ts_time %}Časové razítko (hodiny TSA){% endblock %}
+{% block lbl_ts_serial %}Sériové číslo tokenu{% endblock %}
+{% block lbl_ts_hash %}Hashovaná data (SHA-256 manifestu){% endblock %}
+{% block lbl_ts_algo %}Hashovací algoritmus{% endblock %}
+
+{% block section_hashes %}5. Integrita Artefaktů (SHA-256){% endblock %}
+{% block lbl_file %}Soubor{% endblock %}
+{% block lbl_sha256 %}SHA-256{% endblock %}
+
+{% block section_legal %}6. Právní Rámec{% endblock %}
+
+{% block section_custody %}7. Řetěz Úschovy{% endblock %}
+{% block custody_intro %}
+Já, <strong>{{ manifest.operator.name }}</strong>, prohlašuji, že webový obsah identifikovaný výše
+byl zachycen dne <strong>{{ manifest.timing.capture_start_utc }}</strong> (UTC) pomocí
+<strong>{{ manifest.tool.name }} v{{ manifest.tool.version }}</strong> v souladu s jurisdikčním
+profilem <strong>{{ profile.name }}</strong>.
+{% endblock %}
+{% block custody_integrity %}
+Integrita zachyceného obsahu je doložena hodnotami SHA-256 a SHA-512 zaznamenanými v souboru
+<code>manifest.json</code> a nezávisle potvrzena kvalifikovaným elektronickým časovým razítkem
+vydaným <strong>{{ profile.tsa_name }}</strong> dne <strong>{{ timestamp.gen_time or "—" }}</strong>.
+{% endblock %}
+{% block sig_line %}Podpis operátora / datum a místo{% endblock %}
