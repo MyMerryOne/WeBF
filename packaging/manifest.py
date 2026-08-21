@@ -56,6 +56,7 @@ def build_manifest(
             "dns": network_result.get("dns", {}),
             "tls": network_result.get("tls"),
             "whois_parsed": network_result.get("whois", {}).get("parsed", {}),
+            "whois_raw": (network_result.get("whois", {}).get("raw", "") or "")[:1500],
         },
         "response_headers": http_result.get("response_headers", {}),
         "artifacts": artifact_hashes,

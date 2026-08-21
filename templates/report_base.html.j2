@@ -215,20 +215,40 @@
     <tr><th>{% block lbl_dns_ns %}DNS NS records{% endblock %}</th>
         <td>{{ manifest.network.dns.NS | join(", ") or "—" }}</td></tr>
     {% if manifest.network.tls %}
+      {% if manifest.network.tls.get('error') %}
+    <tr><th>{% block lbl_tls_err_label %}TLS certificate{% endblock %}</th>
+        <td><span class="badge badge-warn">{% block lbl_tls_err %}Capture error{% endblock %}: {{ manifest.network.tls.error }}</span></td></tr>
+      {% else %}
     <tr><th>{% block lbl_tls_subject %}TLS subject{% endblock %}</th>
         <td>{{ manifest.network.tls.subject }}</td></tr>
     <tr><th>{% block lbl_tls_issuer %}TLS issuer{% endblock %}</th>
         <td>{{ manifest.network.tls.issuer }}</td></tr>
     <tr><th>{% block lbl_tls_valid %}TLS validity{% endblock %}</th>
         <td>{{ manifest.network.tls.not_valid_before }} → {{ manifest.network.tls.not_valid_after }}</td></tr>
+    <tr><th>{% block lbl_tls_san %}TLS SANs{% endblock %}</th>
+        <td>{{ manifest.network.tls.subject_alternative_names | join(", ") or "—" }}</td></tr>
     <tr><th>{% block lbl_tls_fp %}TLS SHA-256 fingerprint{% endblock %}</th>
         <td><span class="hash">{{ manifest.network.tls.sha256_fingerprint }}</span></td></tr>
+      {% endif %}
+    {% else %}
+    <tr><th>{% block lbl_tls_na %}TLS certificate{% endblock %}</th>
+        <td>{% block lbl_tls_http %}N/A — HTTP connection (no TLS){% endblock %}</td></tr>
     {% endif %}
     {% if manifest.network.whois_parsed %}
     <tr><th>{% block lbl_whois_reg %}WHOIS registrar{% endblock %}</th>
         <td>{{ manifest.network.whois_parsed.registrar or "—" }}</td></tr>
     <tr><th>{% block lbl_whois_created %}WHOIS created{% endblock %}</th>
         <td>{{ manifest.network.whois_parsed.creation_date or "—" }}</td></tr>
+    <tr><th>{% block lbl_whois_expires %}WHOIS expires{% endblock %}</th>
+        <td>{{ manifest.network.whois_parsed.expiration_date or "—" }}</td></tr>
+    <tr><th>{% block lbl_whois_country %}WHOIS country{% endblock %}</th>
+        <td>{{ manifest.network.whois_parsed.registrant_country or "—" }}</td></tr>
+    {% elif manifest.network.whois_raw %}
+    <tr><th>{% block lbl_whois_raw %}WHOIS (raw){% endblock %}</th>
+        <td><pre style="font-size:8pt; white-space:pre-wrap; word-break:break-all; margin:0;">{{ manifest.network.whois_raw }}</pre></td></tr>
+    {% else %}
+    <tr><th>{% block lbl_whois_na %}WHOIS{% endblock %}</th>
+        <td>{% block lbl_whois_nodata %}Lookup unavailable — see network/whois.txt in evidence package{% endblock %}</td></tr>
     {% endif %}
   </table>
 
