@@ -234,6 +234,11 @@
         <td>{{ manifest.network.tls.subject_alternative_names | join(", ") or "—" }}</td></tr>
     <tr><th>{% block lbl_tls_fp %}TLS SHA-256 fingerprint{% endblock %}</th>
         <td><span class="hash">{{ manifest.network.tls.sha256_fingerprint }}</span></td></tr>
+    {% if manifest.network.tls.chain_verified == false %}
+    <tr><th>{% block lbl_tls_chain %}TLS chain verification{% endblock %}</th>
+        <td><span class="badge badge-warn">{% block lbl_tls_chain_warn %}Unverified — local CA store could not validate the chain{% endblock %}</span>
+        {% if manifest.network.tls.chain_verify_error %}<br><small style="font-size:8pt;color:#555;">{{ manifest.network.tls.chain_verify_error[:200] }}</small>{% endif %}</td></tr>
+    {% endif %}
       {% endif %}
     {% else %}
     <tr><th>{% block lbl_tls_na %}TLS certificate{% endblock %}</th>
