@@ -153,7 +153,76 @@ def _close_modal(page) -> None:
         pass
 
 
-def _capture_one_modal(page, link: dict) -> dict[str, Any]:
+def _pdf_modal_on_fresh_page(context, url: str, link: dict) -> bytes:
+    """Open a fresh page, navigate to *url*, click the legal modal trigger,
+    expand all overflow/max-height constraints, hide the background, then
+    print to PDF so the full modal text is captured across pages.
+
+    Uses a separate page so DOM manipulation does not affect the shared
+    page that is still needed for subsequent modal captures.
+    """
+    _JS_EXPAND_MODAL = """(el) => {
+        const expand = (node) => {
+            const s = node.style;
+            s.overflow = 'visible';
+            s.overflowY = 'visible';
+            s.overflowX = 'visible';
+            s.maxHeight = 'none';
+            s.height = 'auto';
+            for (const c of node.children) expand(c);
+        };
+        expand(el);
+        // Reposition out of fixed/absolute stacking so it flows in the document
+        el.style.position = 'relative';
+        el.style.transform = 'none';
+        el.style.top = 'auto';
+        el.style.left = 'auto';
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+        el.style.margin = '0 auto';
+        el.style.width = '100%';
+        el.style.maxWidth = '900px';
+        el.style.boxShadow = 'none';
+        el.style.borderRadius = '0';
+        // Hide everything else so only the modal content is printed
+        for (const child of document.body.children) {
+            if (!child.contains(el) && child !== el)
+                child.style.display = 'none';
+        }
+        document.body.style.overflow = 'visible';
+        document.body.style.background = 'white';
+        document.body.style.margin = '0';
+        document.body.style.padding = '0';
+    }"""
+
+    pdf_page = context.new_page()
+    try:
+        pdf_page.goto(url, wait_until="networkidle", timeout=60_000)
+        _dismiss_cookie_banner(pdf_page)
+
+        trigger = _find_trigger(pdf_page, link)
+        if trigger:
+            trigger.scroll_into_view_if_needed()
+            trigger.click()
+            modal = _find_modal(pdf_page)
+            pdf_page.wait_for_timeout(600)
+            if modal:
+                try:
+                    modal.evaluate(_JS_EXPAND_MODAL)
+                    pdf_page.wait_for_timeout(200)
+                except Exception:
+                    pass
+
+        return pdf_page.pdf(
+            format="A4",
+            print_background=True,
+            margin={"top": "15mm", "bottom": "15mm", "left": "15mm", "right": "15mm"},
+        )
+    finally:
+        pdf_page.close()
+
+
+def _capture_one_modal(page, link: dict, url: str = "", context=None) -> dict[str, Any]:
     """Click the trigger for *link*, capture the resulting modal, close it."""
     trigger = _find_trigger(page, link)
     if trigger is None:
@@ -184,12 +253,16 @@ def _capture_one_modal(page, link: dict) -> dict[str, Any]:
     else:
         rendered_html = page.content().encode("utf-8")
 
-    # PDF of the page with the modal open (shows the modal in context)
-    pdf_bytes: bytes = page.pdf(
-        format="A4",
-        print_background=True,
-        margin={"top": "15mm", "bottom": "15mm", "left": "15mm", "right": "15mm"},
-    )
+    # PDF — use a fresh page so DOM manipulation (overflow removal, background
+    # hiding) does not corrupt the shared page used for subsequent modals.
+    if context and url:
+        pdf_bytes: bytes = _pdf_modal_on_fresh_page(context, url, link)
+    else:
+        pdf_bytes = page.pdf(
+            format="A4",
+            print_background=True,
+            margin={"top": "15mm", "bottom": "15mm", "left": "15mm", "right": "15mm"},
+        )
 
     _close_modal(page)
 
@@ -230,7 +303,7 @@ def capture_legal_modals(url: str, legal_links: list[dict]) -> dict[str, dict[st
             for link in embedded:
                 slug = link["slug"]
                 try:
-                    results[slug] = _capture_one_modal(page, link)
+                    results[slug] = _capture_one_modal(page, link, url=url, context=context)
                 except Exception as exc:
                     results[slug] = {"error": str(exc)}
         finally:
