@@ -55,6 +55,12 @@
     margin: 18px 0 10px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  h3 + table, h3 + ul, h3 + p, h3 + div {
+    break-before: avoid;
+    page-break-before: avoid;
   }
   /* Tables */
   table {
@@ -67,6 +73,14 @@
     padding: 5px 8px;
     border: 1px solid #dde4ef;
     vertical-align: top;
+  }
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  thead {
+    break-after: avoid;
+    page-break-after: avoid;
   }
   th {
     background: #eef2fa;
@@ -105,6 +119,8 @@
     padding: 12px 16px;
     margin-top: 18px;
     font-size: 9.5pt;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
   .custody-box p { margin-bottom: 6px; }
   .sig-line {
@@ -131,6 +147,20 @@
   }
   .redirect-chain { font-size: 9pt; }
   .redirect-chain li { margin-bottom: 2px; }
+  /* Sections: heading is always kept with the first content block */
+  .section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  /* Large sections (artifact table) may paginate freely — only heading stays attached */
+  .section-breakable {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+  .section-breakable h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
 </style>
 </head>
 <body>
@@ -159,6 +189,7 @@
   </div>
 
   <!-- 1. Capture details -->
+  <div class="section">
   <h3>{% block section_capture %}1. Capture Details{% endblock %}</h3>
   <table>
     <tr><th>{% block lbl_url %}Target URL{% endblock %}</th>
@@ -195,8 +226,10 @@
     <tr><th>{% block lbl_jurisdiction %}Jurisdiction profile{% endblock %}</th>
         <td>{{ profile.name }}</td></tr>
   </table>
+  </div>
 
   <!-- 2. Operator -->
+  <div class="section">
   <h3>{% block section_operator %}2. Operator Information{% endblock %}</h3>
   <table>
     <tr><th>{% block lbl_op_name %}Name{% endblock %}</th>
@@ -207,8 +240,10 @@
     <tr><th>{% block lbl_op_notes %}Notes{% endblock %}</th>
         <td>{{ manifest.operator.notes or "—" }}</td></tr>
   </table>
+  </div>
 
   <!-- 3. Network information -->
+  <div class="section">
   <h3>{% block section_network %}3. Network Information{% endblock %}</h3>
   <table>
     <tr><th>{% block lbl_hostname %}Hostname{% endblock %}</th>
@@ -261,8 +296,10 @@
         <td>{% block lbl_whois_nodata %}Lookup unavailable — see network/whois.txt in evidence package{% endblock %}</td></tr>
     {% endif %}
   </table>
+  </div>
 
   <!-- 4. Timestamp -->
+  <div class="section">
   <h3>{% block section_timestamp %}4. RFC 3161 Trusted Timestamp{% endblock %}</h3>
   <table>
     <tr><th>{% block lbl_ts_tsa %}Timestamp Authority (TSA){% endblock %}</th>
@@ -288,8 +325,10 @@
     <tr><th>{% block lbl_ts_algo %}Hash algorithm{% endblock %}</th>
         <td>SHA-256</td></tr>
   </table>
+  </div>
 
-  <!-- 5. Artifact hashes -->
+  <!-- 5. Artifact hashes (long table — breakable, heading kept attached) -->
+  <div class="section-breakable">
   <h3>{% block section_hashes %}5. Artifact Integrity (SHA-256){% endblock %}</h3>
   <table class="artifact-table">
     <tr>
@@ -303,8 +342,10 @@
     </tr>
     {% endfor %}
   </table>
+  </div>
 
   <!-- 6. Legal framework -->
+  <div class="section">
   <h3>{% block section_legal %}6. Legal Framework{% endblock %}</h3>
   <ul class="legal-list">
     {% for ref in profile.legal_references %}
@@ -312,11 +353,13 @@
     {% endfor %}
   </ul>
   <p style="margin-top:10px; font-size:9.5pt;">{{ profile.notes }}</p>
+  </div>
 
   {% block extra_sections %}{% endblock %}
 
   <!-- 7. Chain of custody -->
   <div class="page-break"></div>
+  <div class="section">
   <h3>{% block section_custody %}7. Chain of Custody{% endblock %}</h3>
   <div class="custody-box">
     <p>{% block custody_intro %}
@@ -334,6 +377,7 @@
     <div class="sig-line">
       {% block sig_line %}Operator signature / date{% endblock %}
     </div>
+  </div>
   </div>
 
   <!-- Footer -->
