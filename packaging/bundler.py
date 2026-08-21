@@ -70,6 +70,12 @@ def assemble_package(
                         zf.writestr(f"capture/legal/{slug}/embedded_extract.html", lc["raw_html"])
                     if lc.get("plain_text"):
                         zf.writestr(f"capture/legal/{slug}/embedded_extract.txt", lc["plain_text"])
+                    if lc.get("modal_screenshot_png"):
+                        zf.writestr(f"capture/legal/{slug}/modal_screenshot.png", lc["modal_screenshot_png"])
+                    if lc.get("modal_rendered_html"):
+                        zf.writestr(f"capture/legal/{slug}/modal_rendered.html", lc["modal_rendered_html"])
+                    if lc.get("modal_pdf_bytes"):
+                        zf.writestr(f"capture/legal/{slug}/modal_page.pdf", lc["modal_pdf_bytes"])
                 else:
                     if lc.get("raw_html"):
                         zf.writestr(f"capture/legal/{slug}/page.html", lc["raw_html"])

@@ -122,6 +122,7 @@ def capture_cmd(
     from capture.network import capture_network
     from capture.browser import capture_browser
     from capture.legal_links import find_legal_links, extract_embedded_section
+    from capture.browser import capture_legal_modals
     from evidence.hasher import hash_bytes, hash_artifacts
     from evidence.timestamper import request_timestamp
     from evidence.warc_writer import build_warc
@@ -223,6 +224,28 @@ def capture_cmd(
         else:
             _echo_warn("No legal sub-pages detected on this page.")
 
+    # 3c. Browser modal capture for embedded legal sections
+    if not no_browser and any(lc.get("embedded") for lc in legal_captures):
+        _echo_step("Capturing legal modal screenshots with browser...")
+        try:
+            modal_results = capture_legal_modals(url, legal_captures)
+            captured_count = 0
+            for lc in legal_captures:
+                slug = lc["slug"]
+                mr = modal_results.get(slug, {})
+                if "error" in mr:
+                    _echo_warn(f"  {lc['label']} modal: {mr['error']}")
+                elif mr:
+                    lc["modal_screenshot_png"] = mr.get("screenshot_png", b"")
+                    lc["modal_rendered_html"] = mr.get("rendered_html", b"")
+                    lc["modal_pdf_bytes"] = mr.get("pdf_bytes", b"")
+                    _echo_ok(f"  {lc['label']} — modal screenshot captured")
+                    captured_count += 1
+            if captured_count:
+                _echo_ok(f"Browser modal capture: {captured_count} modal(s) screenshotted.")
+        except Exception as exc:
+            _echo_warn(f"Browser modal capture skipped: {exc}")
+
     # 4. WARC
     _echo_step("Building ISO 28500 WARC archive...")
     try:
@@ -249,11 +272,16 @@ def capture_cmd(
     for lc in legal_captures:
         slug = lc["slug"]
         if lc.get("embedded"):
-            # Save the extracted fragment and plain text (may be empty if not found)
             if lc.get("raw_html"):
                 artifacts[f"capture/legal/{slug}/embedded_extract.html"] = lc["raw_html"]
             if lc.get("plain_text"):
                 artifacts[f"capture/legal/{slug}/embedded_extract.txt"] = lc["plain_text"]
+            if lc.get("modal_screenshot_png"):
+                artifacts[f"capture/legal/{slug}/modal_screenshot.png"] = lc["modal_screenshot_png"]
+            if lc.get("modal_rendered_html"):
+                artifacts[f"capture/legal/{slug}/modal_rendered.html"] = lc["modal_rendered_html"]
+            if lc.get("modal_pdf_bytes"):
+                artifacts[f"capture/legal/{slug}/modal_page.pdf"] = lc["modal_pdf_bytes"]
         else:
             if lc.get("raw_html"):
                 artifacts[f"capture/legal/{slug}/page.html"] = lc["raw_html"]
