@@ -20,9 +20,23 @@ Trusted List (https://eidas.agid.gov.it/TL/TSL-IT.xml).
 PROFILE = {
     "id": "it",
     "name": "Italia (CAD / D.Lgs. 82/2005)",
-    "tsa_url": "http://timestamp.aruba.it/index.html",
-    "tsa_fallback_url": "https://freetsa.org/tsr",
-    "tsa_name": "Aruba PEC S.p.A. (AgID-accredited TSP)",
+    # Actalis is listed first because it is the only AgID-qualified TSP with a
+    # publicly accessible endpoint (no subscription credentials required).
+    # Aruba, InfoCert, and Namirial require a paid subscription and HTTP Basic
+    # Auth credentials; add them here once credentials are available.
+    "tsa_url": "http://timestamp.actalis.com",
+    "tsa_name": "Actalis S.p.A. (AgID-accredited TSP)",
+    # Ordered fallback list; all are AgID/eIDAS-qualified TSPs.
+    # webf tries each in order and stops at the first success.
+    # Endpoints verified 2026-08-21. Credentials marked where required.
+    "tsa_qualified_endpoints": [
+        # Public endpoint — no credentials required
+        ("Actalis S.p.A.", "http://timestamp.actalis.com"),
+        # Requires paid subscription + HTTP Basic Auth (username:password)
+        ("Aruba PEC S.p.A.", "https://servizi.arubapec.it/tsa/ngrequest.php"),
+        ("InfoCert S.p.A.", "https://digitaltimestamp.infocert.it/idts-rest/dts/timestamp"),
+        ("Namirial S.p.A.", "https://timestamp.namirialtsp.com"),
+    ],
     "hash_algorithms": ["sha256", "sha512"],
     "legal_references": [
         "D.Lgs. 82/2005 — Codice dell'Amministrazione Digitale (CAD), art. 20–23-ter",
@@ -54,10 +68,12 @@ PROFILE = {
     "verbale_section": True,
 }
 
-# Ordered list of AgID-accredited TSA endpoints to try
+# Ordered list of AgID-accredited TSA endpoints to try.
+# Verified 2026-08-21. Actalis is the only publicly accessible endpoint;
+# the others require a paid subscription with HTTP Basic Auth credentials.
 AGID_TSA_ENDPOINTS = [
-    ("Aruba PEC S.p.A.", "http://timestamp.aruba.it/index.html"),
-    ("Actalis S.p.A.", "http://timestamp.actalis.com/tsa"),
-    ("InfoCert S.p.A.", "https://sello.infocert.it/tsa/tsa.shtml"),
-    ("Namirial S.p.A.", "https://ra.namirial.com/services/Timestamp"),
+    ("Actalis S.p.A.", "http://timestamp.actalis.com"),
+    ("Aruba PEC S.p.A.", "https://servizi.arubapec.it/tsa/ngrequest.php"),
+    ("InfoCert S.p.A.", "https://digitaltimestamp.infocert.it/idts-rest/dts/timestamp"),
+    ("Namirial S.p.A.", "https://timestamp.namirialtsp.com"),
 ]

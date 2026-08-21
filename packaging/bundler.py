@@ -20,6 +20,7 @@ def assemble_package(
     network_result: dict[str, Any],
     timestamp_result: dict[str, Any],
     artifact_hashes: dict[str, dict[str, str]],
+    legal_captures: list[dict] = (),
 ) -> bytes:
     buf = io.BytesIO()
 
@@ -40,6 +41,38 @@ def assemble_package(
         if page_pdf:
             zf.writestr("capture/page.pdf", page_pdf)
         zf.writestr("capture/http_response_raw.bin", http_raw_bytes)
+
+        if legal_captures:
+            legal_index = []
+            for lc in legal_captures:
+                entry: dict[str, Any] = {
+                    "label": lc["label"],
+                    "slug": lc["slug"],
+                    "url": lc["url"],
+                    "embedded": lc.get("embedded", False),
+                }
+                if not lc.get("embedded"):
+                    entry["status_code"] = lc["http_result"].get("status_code")
+                else:
+                    entry["note"] = (
+                        "Content is embedded in the main page. "
+                        "See capture/page.warc.gz and capture/http_response_raw.bin."
+                    )
+                legal_index.append(entry)
+            zf.writestr(
+                "capture/legal/legal_index.json",
+                json.dumps(legal_index, indent=2, ensure_ascii=False).encode(),
+            )
+            for lc in legal_captures:
+                if lc.get("embedded"):
+                    continue
+                slug = lc["slug"]
+                if lc.get("raw_html"):
+                    zf.writestr(f"capture/legal/{slug}/page.html", lc["raw_html"])
+                if lc.get("raw_bytes"):
+                    zf.writestr(
+                        f"capture/legal/{slug}/http_response_raw.bin", lc["raw_bytes"]
+                    )
 
         dns_json = json.dumps(
             network_result.get("dns", {}), indent=2, ensure_ascii=False

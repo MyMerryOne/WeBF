@@ -85,6 +85,13 @@ def cli() -> None:
     help="Directory where the ZIP package will be written.",
 )
 @click.option("--no-browser", is_flag=True, help="Skip Playwright rendering (HTTP + WARC only).")
+@click.option("--no-legal", is_flag=True, help="Skip automatic legal sub-page capture.")
+@click.option(
+    "--max-legal-pages",
+    default=10,
+    show_default=True,
+    help="Maximum number of legal sub-pages to capture.",
+)
 @click.option(
     "--operator-role",
     default="",
@@ -104,6 +111,8 @@ def capture_cmd(
     tsa_url: str | None,
     output_dir: str,
     no_browser: bool,
+    no_legal: bool,
+    max_legal_pages: int,
     operator_role: str,
     operator_cf: str,
 ) -> None:
@@ -112,6 +121,7 @@ def capture_cmd(
     from capture.http_raw import capture_http, build_raw_http_bytes
     from capture.network import capture_network
     from capture.browser import capture_browser
+    from capture.legal_links import find_legal_links
     from evidence.hasher import hash_bytes, hash_artifacts
     from evidence.timestamper import request_timestamp
     from evidence.warc_writer import build_warc
@@ -167,10 +177,52 @@ def capture_cmd(
         except Exception as exc:
             _echo_warn(f"Browser capture failed: {exc}. Continuing without browser artifacts.")
 
+    # 3b. Legal sub-pages
+    legal_captures: list[dict] = []
+    if not no_legal:
+        _echo_step("Scanning for legal sub-pages (Privacy Policy, Cookie Policy, T&C)...")
+        html_source = browser_result.get("rendered_html") or http_result.get("raw_body", b"")
+        links = find_legal_links(html_source, url, max_links=max_legal_pages)
+        embedded_count = 0
+        fetched_count = 0
+        for link in links:
+            if link.get("embedded"):
+                # Content is inline on the main page — already captured in WARC
+                legal_captures.append({
+                    **link,
+                    "http_result": http_result,
+                    "raw_html": b"",   # embedded; see main capture
+                    "raw_bytes": b"",
+                })
+                _echo_ok(f"  {link['label']} — embedded in main page")
+                embedded_count += 1
+            else:
+                try:
+                    lhttpres = capture_http(link["url"])
+                    legal_captures.append({
+                        **link,
+                        "http_result": lhttpres,
+                        "raw_html": lhttpres.get("raw_body", b""),
+                        "raw_bytes": build_raw_http_bytes(lhttpres),
+                    })
+                    _echo_ok(f"  {link['label']} — {link['url']}")
+                    fetched_count += 1
+                except Exception as exc:
+                    _echo_warn(f"  {link['label']} failed: {exc}")
+        if legal_captures:
+            parts = []
+            if fetched_count:
+                parts.append(f"{fetched_count} fetched")
+            if embedded_count:
+                parts.append(f"{embedded_count} embedded in main page")
+            _echo_ok(f"Legal content: {', '.join(parts)}.")
+        else:
+            _echo_warn("No legal sub-pages detected on this page.")
+
     # 4. WARC
     _echo_step("Building ISO 28500 WARC archive...")
     try:
-        warc_bytes = build_warc(url, http_result, browser_result, operator, case_ref)
+        warc_bytes = build_warc(url, http_result, browser_result, operator, case_ref, legal_captures)
         _echo_ok(f"WARC archive built ({len(warc_bytes):,} bytes).")
     except Exception as exc:
         _echo_warn(f"WARC build failed: {exc}")
@@ -190,6 +242,14 @@ def capture_cmd(
         artifacts["capture/page.html"] = browser_result["rendered_html"]
     if browser_result.get("pdf_bytes"):
         artifacts["capture/page.pdf"] = browser_result["pdf_bytes"]
+    for lc in legal_captures:
+        if lc.get("embedded"):
+            continue  # content is the main page already hashed above
+        slug = lc["slug"]
+        if lc.get("raw_html"):
+            artifacts[f"capture/legal/{slug}/page.html"] = lc["raw_html"]
+        if lc.get("raw_bytes"):
+            artifacts[f"capture/legal/{slug}/http_response_raw.bin"] = lc["raw_bytes"]
 
     # 6. Hash artifacts
     _echo_step("Computing SHA-256 / SHA-512 hashes...")
@@ -218,23 +278,73 @@ def capture_cmd(
     _echo_ok("Manifest built.")
 
     # 8. RFC 3161 timestamp
-    _echo_step(f"Requesting RFC 3161 timestamp from {effective_tsa} ...")
-    try:
-        timestamp_result = request_timestamp(manifest_bytes, effective_tsa)
-        ts_status = timestamp_result["parsed"].get("status", "unknown")
-        if ts_status in ("granted", "grantedWithMods"):
-            _echo_ok(f"Timestamp received: {timestamp_result['parsed'].get('gen_time', '')}")
+    # For Italian jurisdiction (without a manual --tsa-url override) we must
+    # use an AgID-accredited Qualified TSP.  Iterate the full fallback list
+    # before giving up.  FreeTSA and other non-qualified TSAs are NOT
+    # compliant with D.Lgs. 82/2005 / DPCM 22/02/2013.
+    qualified_endpoints: list[tuple[str, str]] = profile.get("tsa_qualified_endpoints", [])
+    # Build the candidate list: explicit override goes first (single entry);
+    # otherwise use the profile's qualified list or the single profile URL.
+    if tsa_url:
+        tsa_candidates = [("TSA (manual override)", tsa_url)]
+    elif qualified_endpoints:
+        tsa_candidates = [(label, url) for label, url in qualified_endpoints]
+    else:
+        tsa_candidates = [(effective_tsa, effective_tsa)]
+
+    timestamp_result: dict = {}
+    ts_used_tsa: str = effective_tsa
+    for tsa_label, tsa_candidate_url in tsa_candidates:
+        _echo_step(f"Requesting RFC 3161 timestamp from {tsa_label} ({tsa_candidate_url}) ...")
+        try:
+            timestamp_result = request_timestamp(manifest_bytes, tsa_candidate_url)
+            ts_status = timestamp_result["parsed"].get("status", "unknown")
+            if ts_status in ("granted", "grantedWithMods"):
+                ts_used_tsa = tsa_candidate_url
+                _echo_ok(
+                    f"Timestamp received from {tsa_label}: "
+                    f"{timestamp_result['parsed'].get('gen_time', '')}"
+                )
+                break
+            else:
+                _echo_warn(f"  {tsa_label} returned status: {ts_status}. Trying next TSA...")
+                timestamp_result = {}
+        except Exception as exc:
+            _echo_warn(f"  {tsa_label} unreachable: {exc}. Trying next TSA...")
+            timestamp_result = {}
+
+    if not timestamp_result:
+        # All candidates exhausted
+        if qualified_endpoints and not tsa_url:
+            # Italian jurisdiction — no qualified TSA was reachable
+            click.echo("")
+            click.echo(click.style(
+                "  ✗ ATTENZIONE — MARCA TEMPORALE NON DISPONIBILE",
+                fg="red", bold=True,
+            ), err=True)
+            click.echo(click.style(
+                "    Nessun TSP qualificato AgID raggiungibile. "
+                "Il pacchetto verrà creato SENZA marca temporale qualificata.\n"
+                "    Ai sensi del DPCM 22/02/2013 e dell'art. 41 eIDAS, "
+                "la prova elettronica priva di marca temporale qualificata\n"
+                "    ha minor efficacia probatoria in giudizio. "
+                "Accertarsi di avere connettività ai TSP AgID prima di\n"
+                "    produrre un pacchetto destinato a uso legale.",
+                fg="red",
+            ), err=True)
+            click.echo("")
         else:
-            _echo_warn(f"TSA status: {ts_status}")
-    except Exception as exc:
-        _echo_warn(f"Timestamping failed ({exc}). Package will be created without timestamp token.")
+            _echo_warn("Timestamping failed. Package will be created without a timestamp token.")
         timestamp_result = {
             "tsq_bytes": b"",
             "tsr_bytes": b"",
             "data_hash_hex": manifest_hashes["sha256"],
             "tsa_url": effective_tsa,
-            "parsed": {"status": "error", "error": str(exc)},
+            "parsed": {"status": "error", "error": "No TSA reachable"},
         }
+    else:
+        timestamp_result["tsa_url"] = ts_used_tsa
+        effective_tsa = ts_used_tsa
 
     # 9. Generate reports
     _echo_step("Generating forensic report (HTML + PDF)...")
@@ -273,6 +383,7 @@ def capture_cmd(
         network_result=network_result,
         timestamp_result=timestamp_result,
         artifact_hashes=artifact_hashes,
+        legal_captures=legal_captures,
     )
 
     out_dir = pathlib.Path(output_dir)

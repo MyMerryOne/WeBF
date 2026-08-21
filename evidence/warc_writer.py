@@ -19,6 +19,7 @@ def build_warc(
     browser_result: dict[str, Any],
     operator: str,
     case_ref: str,
+    legal_captures: list[dict] = (),
 ) -> bytes:
     buf = io.BytesIO()
     writer = WARCWriter(buf, gzip=True)
@@ -122,6 +123,28 @@ def build_warc(
                     "Content-Type": "application/pdf",
                     "WARC-Date": warc_date,
                     "WARC-Description": "PDF rendering (A4 print media)",
+                },
+            )
+        )
+
+    # legal sub-page response records
+    for lc in legal_captures:
+        lr = lc["http_result"]
+        lr_raw = (
+            f"HTTP/1.1 {lr['status_code']} {lr['reason']}\r\n"
+        ).encode()
+        for k, v in lr.get("response_headers", {}).items():
+            lr_raw += f"{k}: {v}\r\n".encode()
+        lr_raw += b"\r\n" + lr.get("raw_body", b"")
+        writer.write_record(
+            writer.create_warc_record(
+                uri=lr.get("final_url", lc["url"]),
+                record_type="response",
+                payload=io.BytesIO(lr_raw),
+                length=len(lr_raw),
+                warc_headers_dict={
+                    "WARC-Date": warc_date,
+                    "WARC-Description": f"Legal page: {lc['label']}",
                 },
             )
         )
