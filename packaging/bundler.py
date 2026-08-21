@@ -64,15 +64,19 @@ def assemble_package(
                 json.dumps(legal_index, indent=2, ensure_ascii=False).encode(),
             )
             for lc in legal_captures:
-                if lc.get("embedded"):
-                    continue
                 slug = lc["slug"]
-                if lc.get("raw_html"):
-                    zf.writestr(f"capture/legal/{slug}/page.html", lc["raw_html"])
-                if lc.get("raw_bytes"):
-                    zf.writestr(
-                        f"capture/legal/{slug}/http_response_raw.bin", lc["raw_bytes"]
-                    )
+                if lc.get("embedded"):
+                    if lc.get("raw_html"):
+                        zf.writestr(f"capture/legal/{slug}/embedded_extract.html", lc["raw_html"])
+                    if lc.get("plain_text"):
+                        zf.writestr(f"capture/legal/{slug}/embedded_extract.txt", lc["plain_text"])
+                else:
+                    if lc.get("raw_html"):
+                        zf.writestr(f"capture/legal/{slug}/page.html", lc["raw_html"])
+                    if lc.get("raw_bytes"):
+                        zf.writestr(
+                            f"capture/legal/{slug}/http_response_raw.bin", lc["raw_bytes"]
+                        )
 
         dns_json = json.dumps(
             network_result.get("dns", {}), indent=2, ensure_ascii=False

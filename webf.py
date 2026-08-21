@@ -121,7 +121,7 @@ def capture_cmd(
     from capture.http_raw import capture_http, build_raw_http_bytes
     from capture.network import capture_network
     from capture.browser import capture_browser
-    from capture.legal_links import find_legal_links
+    from capture.legal_links import find_legal_links, extract_embedded_section
     from evidence.hasher import hash_bytes, hash_artifacts
     from evidence.timestamper import request_timestamp
     from evidence.warc_writer import build_warc
@@ -187,14 +187,18 @@ def capture_cmd(
         fetched_count = 0
         for link in links:
             if link.get("embedded"):
-                # Content is inline on the main page — already captured in WARC
+                plain_text, html_fragment = extract_embedded_section(html_source, link)
                 legal_captures.append({
                     **link,
                     "http_result": http_result,
-                    "raw_html": b"",   # embedded; see main capture
+                    "raw_html": html_fragment.encode("utf-8") if html_fragment else b"",
+                    "plain_text": plain_text.encode("utf-8") if plain_text else b"",
                     "raw_bytes": b"",
                 })
-                _echo_ok(f"  {link['label']} — embedded in main page")
+                if html_fragment:
+                    _echo_ok(f"  {link['label']} — extracted from main page ({len(html_fragment):,} chars)")
+                else:
+                    _echo_ok(f"  {link['label']} — embedded in main page (content not separately extractable)")
                 embedded_count += 1
             else:
                 try:
@@ -243,13 +247,18 @@ def capture_cmd(
     if browser_result.get("pdf_bytes"):
         artifacts["capture/page.pdf"] = browser_result["pdf_bytes"]
     for lc in legal_captures:
-        if lc.get("embedded"):
-            continue  # content is the main page already hashed above
         slug = lc["slug"]
-        if lc.get("raw_html"):
-            artifacts[f"capture/legal/{slug}/page.html"] = lc["raw_html"]
-        if lc.get("raw_bytes"):
-            artifacts[f"capture/legal/{slug}/http_response_raw.bin"] = lc["raw_bytes"]
+        if lc.get("embedded"):
+            # Save the extracted fragment and plain text (may be empty if not found)
+            if lc.get("raw_html"):
+                artifacts[f"capture/legal/{slug}/embedded_extract.html"] = lc["raw_html"]
+            if lc.get("plain_text"):
+                artifacts[f"capture/legal/{slug}/embedded_extract.txt"] = lc["plain_text"]
+        else:
+            if lc.get("raw_html"):
+                artifacts[f"capture/legal/{slug}/page.html"] = lc["raw_html"]
+            if lc.get("raw_bytes"):
+                artifacts[f"capture/legal/{slug}/http_response_raw.bin"] = lc["raw_bytes"]
 
     # 6. Hash artifacts
     _echo_step("Computing SHA-256 / SHA-512 hashes...")
