@@ -1,20 +1,20 @@
 # WeBF — Web Forensic Capture Tool
 
-A Python CLI tool that captures public websites and produces tamper-evident, independently verifiable evidence packages suitable for EU court proceedings.
+A Python CLI tool that captures public websites and produces tamper-evident, independently verifiable technical evidence packages for review in EU and Italian proceedings.
 
 ## Legal Standards
 
 | Jurisdiction | Legal framework | TSA |
 |---|---|---|
-| `eu` | eIDAS Regulation 910/2014, Art. 41–42; ETSI EN 319 422 | FreeTSA.org |
-| `it` | D.Lgs. 82/2005 (CAD), DPCM 22/02/2013; AgID Trusted List | Aruba PEC S.p.A. (AgID-accredited) |
+| `eu` | eIDAS Regulation 910/2014, Art. 41–42; ETSI EN 319 422 | Configured TSA; qualification must be validated |
+| `it` | D.Lgs. 82/2005 (CAD), DPCM 22/02/2013; AgID Trusted List | Configured TSA; AgID status must be validated |
 | `cz` | Zákon č. 297/2016 Sb.; Občanský soudní řád §79, §125 | FreeTSA.org (any EU-TSL TSA) |
 
 **Key properties:**
 - The page content never leaves your machine — only a SHA-256 hash of the manifest is sent to the TSA
 - Primary evidence format is **WARC (ISO 28500:2017)** — the only ISO-standardised web archive, used by national libraries
 - All artifacts are double-hashed (SHA-256 + SHA-512) to future-proof against hash deprecation
-- RFC 3161 timestamp token provides third-party attestation of capture time (eIDAS Art. 42 qualified time stamp)
+- RFC 3161 timestamp token records a third-party time/hash relationship; qualification is not inferred from the endpoint URL
 
 ---
 
@@ -203,13 +203,16 @@ Tests that require `pyasn1` (TSR parsing) are skipped automatically if the libra
 ## Frequently Asked Questions
 
 **Why is the WARC the primary evidence and not the PDF/screenshot?**
-WARC (ISO 28500:2017) is backed by an ISO standard, used by the Internet Archive and national libraries, and records the full HTTP exchange with byte-accurate fidelity. PDFs and screenshots can be challenged as derived representations; the WARC cannot.
+WARC (ISO 28500:2017) is a structured archive format suitable for preserving HTTP capture records. PDFs, screenshots, and rendered HTML are derived representations and should be assessed together with the underlying HTTP/WARC evidence.
 
 **Why is only a hash sent to the TSA?**
-RFC 3161 only requires the hash of the artifact to be timestamped. The page content never leaves your machine. The TSA signs the hash plus a trusted timestamp, giving independent third-party attestation without exposing potentially confidential content.
+RFC 3161 only requires the hash of the data to be timestamped. The page content never leaves your machine. The resulting token records a third-party time/hash relationship; its signature, trust chain, and qualification must still be validated.
 
 **What TSA should I use for Italian courts?**
-For maximum evidential weight, use an AgID-accredited Qualified Trust Service Provider. The tool defaults to Aruba PEC S.p.A. for the `it` profile. Other options: InfoCert, Namirial, Actalis, Poste Italiane. See `jurisdiction/it.py` for the full list of endpoints.
+Use a provider and service appearing on the current AgID/EU Trusted List for the relevant qualified service, and preserve the list/version and validation time with the case record. An endpoint configured in `jurisdiction/it.py` is not proof of qualification.
 
 **Can I verify the package without installing WeBF?**
-Yes. Run `timestamp/verify.sh` (Linux/macOS) or `timestamp/verify.ps1` (Windows) — both require only OpenSSL, which is available on all modern systems. Hash verification only requires `sha256sum` or PowerShell's `Get-FileHash`.
+Yes. Run `timestamp/verify.sh` (Linux/macOS) or `timestamp/verify.ps1` (Windows/PowerShell) — both require only OpenSSL, which is available on all modern systems. Hash verification only requires `sha256sum` or PowerShell's `Get-FileHash`.
+
+**How should external signatures be handled?**
+WeBF does not generate or store private signing keys. The first supported evidence contracts are a detached CMS/PKCS#7 signature over `manifest.json`, or a PAdES signature over the PDF report with an explicit hash link to the manifest. Store the signature and certificate chain as separate verification material, and verify them independently with the provider's tools or OpenSSL. Until this step is performed, `manifest.json` records `signature.status` as `not_applied` and the report must be treated as unsigned.

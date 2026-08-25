@@ -10,10 +10,12 @@
 {% block operator_label %}Operatore{% endblock %}
 
 {% block notice %}
-Il presente documento costituisce verbale di acquisizione forense di una pagina web pubblica
-ai sensi del D.Lgs. 82/2005 (Codice dell'Amministrazione Digitale) e del Regolamento (UE) 910/2014 (eIDAS).
-L'integrità è garantita da hash crittografici SHA-256/SHA-512 e da una marca temporale qualificata
-rilasciata da un Prestatore di Servizi Fiduciari accreditato AgID (art. 20 CAD; art. 41–42 eIDAS).
+Il presente documento descrive tecnicamente l'acquisizione di una pagina web pubblica,
+gli artefatti prodotti e le verifiche eseguite. Gli hash attestano la corrispondenza
+dei byte rispetto al materiale ricevuto; l'eventuale marca temporale attesta il rapporto
+tra un'impronta e un momento secondo il risultato della validazione registrata.
+Il documento non costituisce da solo una valutazione di ammissibilità, autenticità,
+completezza, provenienza, paternità del contenuto o qualificazione giuridica dell'acquisizione.
 {% endblock %}
 
 {% block section_capture %}1. Dettagli dell'Acquisizione{% endblock %}
@@ -44,6 +46,7 @@ rilasciata da un Prestatore di Servizi Fiduciari accreditato AgID (art. 20 CAD; 
 {% block lbl_op_notes %}Note{% endblock %}
 
 {% block section_network %}3. Informazioni di Rete{% endblock %}
+{% block section_provenance %}4. Provenienza e Limitazioni{% endblock %}
 {% block lbl_hostname %}Hostname{% endblock %}
 {% block lbl_dns_a %}Record DNS A{% endblock %}
 {% block lbl_dns_aaaa %}Record DNS AAAA{% endblock %}
@@ -67,7 +70,7 @@ rilasciata da un Prestatore di Servizi Fiduciari accreditato AgID (art. 20 CAD; 
 {% block lbl_whois_na %}WHOIS{% endblock %}
 {% block lbl_whois_nodata %}Ricerca non disponibile — vedere network/whois.txt nel pacchetto{% endblock %}
 
-{% block section_timestamp %}4. Marca Temporale RFC 3161{% endblock %}
+{% block section_timestamp %}5. Marca Temporale RFC 3161{% endblock %}
 {% block lbl_ts_tsa %}Autorità di Marcatura Temporale (TSA){% endblock %}
 {% block lbl_ts_status %}Risposta TSA{% endblock %}
 {% block lbl_ts_time %}Marca temporale (orologio TSA){% endblock %}
@@ -75,14 +78,14 @@ rilasciata da un Prestatore di Servizi Fiduciari accreditato AgID (art. 20 CAD; 
 {% block lbl_ts_hash %}Hash firmato (SHA-256 del manifest){% endblock %}
 {% block lbl_ts_algo %}Algoritmo di hashing{% endblock %}
 
-{% block section_hashes %}5. Integrità degli Artefatti (SHA-256){% endblock %}
+{% block section_hashes %}6. Integrità degli Artefatti (SHA-256){% endblock %}
 {% block lbl_file %}File{% endblock %}
 {% block lbl_sha256 %}SHA-256{% endblock %}
 
-{% block section_legal %}6. Quadro Normativo di Riferimento{% endblock %}
+{% block section_legal %}7. Quadro Normativo di Riferimento{% endblock %}
 
 {% block extra_sections %}
-  <h3>7. Dichiarazione dell'Operatore (Verbale)</h3>
+  <h3>8. Dichiarazione dell'Operatore (Verbale)</h3>
   <div class="custody-box" style="margin-top:10px; border-color:#333;">
     <p>
       Il sottoscritto <strong>{{ manifest.operator.name }}</strong>
@@ -94,10 +97,10 @@ rilasciata da un Prestatore di Servizi Fiduciari accreditato AgID (art. 20 CAD; 
       utilizzando il software <strong>{{ manifest.tool.name }} v{{ manifest.tool.version }}</strong>.
     </p>
     <p style="margin-top:8px;">
-      L'acquisizione è avvenuta senza alterazione dei contenuti originali. L'integrità del materiale
-      acquisito è attestata dagli hash crittografici SHA-256 e SHA-512 contenuti nel file
-      <code>manifest.json</code> e dalla marca temporale qualificata rilasciata da
-      <strong>{{ profile.tsa_name }}</strong> in data <strong>{{ timestamp.gen_time or "—" }}</strong>.
+      Il materiale è stato elaborato secondo la procedura descritta nel pacchetto. Gli hash
+      SHA-256 e SHA-512 registrati in <code>manifest.json</code> consentono di verificare
+      la corrispondenza dei file inclusi; la validità crittografica e lo stato di fiducia
+      della marca temporale devono essere verificati separatamente.
     </p>
     <div class="sig-line">
       Firma dell'Operatore / Data e luogo
@@ -105,16 +108,17 @@ rilasciata da un Prestatore di Servizi Fiduciari accreditato AgID (art. 20 CAD; 
   </div>
 {% endblock %}
 
-{% block section_custody %}8. Catena di Custodia{% endblock %}
+{% block section_custody %}9. Catena di Custodia{% endblock %}
 {% block custody_intro %}
 Io, <strong>{{ manifest.operator.name }}</strong>, dichiaro che il contenuto web identificato sopra
 è stato acquisito il <strong>{{ manifest.timing.capture_start_utc }}</strong> (UTC) tramite
 <strong>{{ manifest.tool.name }} v{{ manifest.tool.version }}</strong> in conformità al
-D.Lgs. 82/2005 (CAD) e al profilo giurisdizionale <strong>{{ profile.name }}</strong>.
+D.Lgs. 82/2005 (CAD), ove applicabile, e al profilo tecnico <strong>{{ profile.name }}</strong>.
 {% endblock %}
 {% block custody_integrity %}
-L'integrità del contenuto acquisito è attestata dagli hash SHA-256 e SHA-512 registrati nel file
-<code>manifest.json</code> e confermata dalla marca temporale qualificata rilasciata da
-<strong>{{ profile.tsa_name }}</strong> in data <strong>{{ timestamp.gen_time or "—" }}</strong>.
+La corrispondenza dei file rispetto agli hash SHA-256 e SHA-512 registrati nel file
+<code>manifest.json</code> è verificabile tramite gli strumenti inclusi nel pacchetto.
+La marca temporale, la catena di fiducia, la completezza dell'acquisizione e l'eventuale
+valore probatorio sono soggetti a verifica e valutazione nel procedimento concreto.
 {% endblock %}
 {% block sig_line %}Firma dell'Operatore / Data e luogo{% endblock %}

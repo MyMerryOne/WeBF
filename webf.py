@@ -53,6 +53,34 @@ def _echo_err(msg: str) -> None:
     click.echo(click.style(f"  ✗ {msg}", fg="red"), err=True)
 
 
+def _package_inventory(manifest: dict, names: list[str]) -> tuple[set[str], set[str]]:
+    """Return manifest entries missing from, and unexpected in, the package."""
+    expected = {"manifest.json", "manifest.sha256", *manifest.get("artifacts", {})}
+    expected.update({
+        "report/forensic_report.html",
+        "report/forensic_report.pdf",
+        "network/dns.json",
+        "network/whois.txt",
+        "network/tls_certificate.json",
+        "timestamp/request.tsq",
+        "timestamp/response.tsr",
+        "timestamp/timestamp_info.json",
+        "timestamp/verify.sh",
+        "timestamp/verify.ps1",
+        "VERIFICATION.md",
+    })
+    package_names = set(names)
+    return expected - package_names, package_names - expected
+
+
+def _unsafe_package_members(names: list[str]) -> set[str]:
+    """Return ZIP members that could escape the package extraction directory."""
+    return {
+        name for name in names
+        if not name or name.startswith("/") or ".." in pathlib.PurePosixPath(name).parts
+    }
+
+
 # ── CLI definition ────────────────────────────────────────────────────────────
 
 
@@ -252,8 +280,8 @@ def capture_cmd(
         warc_bytes = build_warc(url, http_result, browser_result, operator, case_ref, legal_captures)
         _echo_ok(f"WARC archive built ({len(warc_bytes):,} bytes).")
     except Exception as exc:
-        _echo_warn(f"WARC build failed: {exc}")
-        warc_bytes = b""
+        _echo_err(f"WARC build failed; capture aborted: {exc}")
+        raise click.ClickException("Primary WARC evidence could not be created.") from exc
 
     # 5. Collect artifacts for hashing
     raw_http_bytes = build_raw_http_bytes(http_result)
@@ -466,6 +494,20 @@ def verify_cmd(package_path: str) -> None:
         manifest_bytes = zf.read("manifest.json")
         manifest = json.loads(manifest_bytes)
 
+        missing_members, unexpected_members = _package_inventory(manifest, names)
+        duplicate_members = {name for name in names if names.count(name) > 1}
+        unsafe_members = _unsafe_package_members(names)
+        for name in sorted(missing_members):
+            _echo_err(f"Package member missing: {name}")
+        for name in sorted(unexpected_members):
+            _echo_err(f"Unexpected package member: {name}")
+        for name in sorted(duplicate_members):
+            _echo_err(f"Duplicate package member: {name}")
+        for name in sorted(unsafe_members):
+            _echo_err(f"Unsafe package member path: {name}")
+        if missing_members or unexpected_members or duplicate_members or unsafe_members:
+            all_ok = False
+
         # Verify manifest hash
         stored_sha256 = (zf.read("manifest.sha256").decode().strip()
                          if "manifest.sha256" in names else "")
@@ -490,10 +532,18 @@ def verify_cmd(package_path: str) -> None:
                 continue
             data = zf.read(name)
             actual_sha256 = hashlib.sha256(data).hexdigest()
-            if actual_sha256 == expected.get("sha256", ""):
+            actual_sha512 = hashlib.sha512(data).hexdigest()
+            sha256_ok = actual_sha256 == expected.get("sha256", "")
+            sha512_ok = actual_sha512 == expected.get("sha512", "")
+            if sha256_ok and sha512_ok:
                 _echo_ok(f"  {name}")
             else:
-                _echo_err(f"  {name}: SHA-256 MISMATCH")
+                algorithms = []
+                if not sha256_ok:
+                    algorithms.append("SHA-256")
+                if not sha512_ok:
+                    algorithms.append("SHA-512")
+                _echo_err(f"  {name}: {', '.join(algorithms)} MISMATCH")
                 all_ok = False
 
         # Timestamp token check
@@ -502,20 +552,34 @@ def verify_cmd(package_path: str) -> None:
             tsr = zf.read("timestamp/response.tsr")
             tsq = zf.read("timestamp/request.tsq")
             if tsr and tsq:
-                from evidence.timestamper import parse_timestamp_response
+                from evidence.timestamper import (
+                    parse_timestamp_response,
+                    validate_timestamp_response,
+                )
                 parsed = parse_timestamp_response(tsr)
                 status = parsed.get("status", "unknown")
                 if status in ("granted", "grantedWithMods"):
-                    _echo_ok(f"  Token status: {status}  |  Time: {parsed.get('gen_time', '—')}")
-                    _echo_warn("  Full cryptographic signature verification requires OpenSSL.")
-                    _echo_warn("  Run timestamp/verify.sh (Linux/macOS) or timestamp/verify.ps1 (Windows).")
+                    validation = validate_timestamp_response(tsq, tsr, manifest_bytes)
+                    if validation.get("imprint_valid") and validation.get("nonce_valid"):
+                        _echo_ok(f"  Token status: {status}  |  Time: {parsed.get('gen_time', '—')}")
+                        _echo_ok("  Message imprint and nonce match manifest.json.")
+                        _echo_warn("  Signer signature and trust-chain verification require OpenSSL.")
+                        _echo_warn("  Run timestamp/verify.sh (Linux/macOS) or timestamp/verify.ps1 (Windows).")
+                    else:
+                        _echo_err(
+                            "  Timestamp token does not match the manifest: "
+                            f"{validation.get('error', 'imprint or nonce mismatch')}"
+                        )
+                        all_ok = False
                 else:
                     _echo_err(f"  Token status: {status}")
                     all_ok = False
             else:
-                _echo_warn("  Timestamp files are empty.")
+                _echo_err("  Timestamp files are empty.")
+                all_ok = False
         else:
-            _echo_warn("  No timestamp token found in package.")
+            _echo_err("  No timestamp token found in package.")
+            all_ok = False
 
     click.echo("")
     if all_ok:

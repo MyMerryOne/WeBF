@@ -59,11 +59,10 @@ PROFILE = {
         },
     ],
     "notes": (
-        "Ai sensi dell'art. 20 CAD il documento informatico soddisfa il requisito "
-        "della forma scritta e ha l'efficacia probatoria di cui all'art. 2702 c.c. "
-        "quando è sottoscritto con firma digitale o firma elettronica qualificata. "
-        "La marca temporale qualificata apposta da un TSP accreditato AgID produce "
-        "gli effetti giuridici di cui all'art. 41 eIDAS."
+        "Il profilo richiama CAD ed eIDAS come riferimenti normativi da verificare "
+        "nel caso concreto. La configurazione di una TSA o la presenza di un token "
+        "non dimostra da sola la qualificazione del servizio, l'identità dell'operatore, "
+        "la provenienza del contenuto o la sua ammissibilità in giudizio."
     ),
     "verbale_section": True,
 }

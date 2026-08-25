@@ -140,6 +140,11 @@ class TestBuildManifest(unittest.TestCase):
         self.assertIn("sha256", m["hash_algorithms"])
         self.assertIn("sha512", m["hash_algorithms"])
 
+    def test_external_signature_is_explicitly_unsigned_by_default(self):
+        signature = _make_manifest()["signature"]
+        self.assertEqual(signature["status"], "not_applied")
+        self.assertTrue(signature["external_signer_required"])
+
     def test_extra_operator_fields_merged(self):
         m = _make_manifest(extra_operator_fields={
             "operator_role": "CTU",

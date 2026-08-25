@@ -4,6 +4,7 @@ Builds a TimeStampReq (DER), POSTs it to a TSA, and returns the raw .tsr bytes
 together with a human-readable summary of the token.  The page content is never
 sent — only a SHA-256 hash of the manifest leaves the machine.
 """
+import hashlib
 from typing import Any
 
 import requests
@@ -81,6 +82,50 @@ def parse_timestamp_response(tsr_bytes: bytes) -> dict[str, Any]:
         return {"status": "parse_error", "error": str(exc)}
 
 
+def validate_timestamp_response(
+    tsq_bytes: bytes,
+    tsr_bytes: bytes,
+    expected_data: bytes,
+) -> dict[str, Any]:
+    """Validate the RFC 3161 imprint and nonce against the original request."""
+    try:
+        ts_req, _ = der_decoder.decode(tsq_bytes, asn1Spec=rfc3161.TimeStampReq())
+        ts_resp, _ = der_decoder.decode(tsr_bytes, asn1Spec=rfc3161.TimeStampResp())
+        status = int(ts_resp["status"]["status"])
+        if status not in (0, 1):
+            return {"imprint_valid": False, "nonce_valid": False, "error": "timestamp was not granted"}
+
+        token = ts_resp["timeStampToken"]
+        content_der = der_encoder.encode(token["content"])
+        len_byte = content_der[1]
+        offset = 2 if len_byte < 0x80 else (3 if len_byte == 0x81 else 4)
+        signed_data, _ = der_decoder.decode(
+            content_der[offset:], asn1Spec=rfc5652.SignedData()
+        )
+        e_content = bytes(signed_data["encapContentInfo"]["eContent"])
+        tst_info, _ = der_decoder.decode(e_content, asn1Spec=rfc3161.TSTInfo())
+
+        request_digest = bytes(ts_req["messageImprint"]["hashedMessage"])
+        expected_digest = hashlib.sha256(expected_data).digest()
+        token_digest = bytes(tst_info["messageImprint"]["hashedMessage"])
+        request_nonce = int(ts_req["nonce"])
+        token_nonce = int(tst_info["nonce"]) if tst_info["nonce"] is not None else None
+        return {
+            "imprint_valid": (
+                request_digest == expected_digest
+                and token_digest == request_digest
+            ),
+            "nonce_valid": token_nonce == request_nonce,
+            "hash_algorithm": str(ts_req["messageImprint"]["hashAlgorithm"]["algorithm"]),
+        }
+    except Exception as exc:
+        return {
+            "imprint_valid": False,
+            "nonce_valid": False,
+            "error": f"timestamp validation failed: {exc}",
+        }
+
+
 def request_timestamp(
     manifest_bytes: bytes,
     tsa_url: str,
@@ -89,6 +134,13 @@ def request_timestamp(
     tsq_bytes, data_hash = build_timestamp_request(manifest_bytes)
     tsr_bytes = send_timestamp_request(tsq_bytes, tsa_url)
     parsed = parse_timestamp_response(tsr_bytes)
+    validation = validate_timestamp_response(tsq_bytes, tsr_bytes, manifest_bytes)
+    parsed["validation"] = validation
+    parsed["trust"] = {
+        "status": "external_validation_required",
+        "qualification": "not_established_by_webf",
+        "network_policy": "configurable",
+    }
     return {
         "tsq_bytes": tsq_bytes,
         "tsr_bytes": tsr_bytes,

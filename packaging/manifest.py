@@ -1,6 +1,7 @@
 """Build the JSON manifest — the root-of-trust for the evidence package."""
 import json
 import datetime
+import platform
 from typing import Any
 
 TOOL_VERSION = "1.0.0"
@@ -64,6 +65,23 @@ def build_manifest(
         "artifacts": artifact_hashes,
         "primary_evidence": "capture/page.warc.gz",
         "hash_algorithms": ["sha256", "sha512"],
+        "signature": {
+            "status": "not_applied",
+            "scope": "manifest.json canonical bytes",
+            "external_signer_required": True,
+        },
+        "provenance": {
+            "host_os": platform.platform(),
+            "python_version": platform.python_version(),
+            "clock": "System clock; timestamps recorded in UTC",
+            "capture_method": "HTTP response capture with optional Playwright rendering",
+        },
+        "limitations": [
+            "Browser screenshots, PDFs, and rendered HTML are derived renderings, not wire bytes.",
+            "Network metadata and WHOIS results are observations at capture time and may be incomplete.",
+            "A hash or timestamp does not establish authorship, truth of content, or legal admissibility.",
+            "Operator signature, lawful authority, and chain-of-custody handling require separate evidence.",
+        ],
     }
     return manifest
 

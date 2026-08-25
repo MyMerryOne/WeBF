@@ -16,13 +16,16 @@ def resolve_dns(hostname: str) -> dict[str, Any]:
     result: dict[str, list] = {
         "A": [], "AAAA": [], "MX": [], "NS": [], "TXT": [],
     }
+    errors: dict[str, str] = {}
     for rtype in result:
         try:
             answers = dns.resolver.resolve(hostname, rtype)
             for rdata in answers:
                 result[rtype].append(str(rdata))
-        except Exception:
-            pass
+        except Exception as exc:
+            errors[rtype] = str(exc)
+    if errors:
+        result["errors"] = errors
     return result
 
 

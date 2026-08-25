@@ -1,16 +1,31 @@
 """Build an ISO 28500 WARC archive containing all capture artifacts."""
 import io
 import datetime
+import gzip
+from urllib.parse import urlsplit
 from typing import Any
 
+from warcio.archiveiterator import ArchiveIterator
 from warcio.warcwriter import WARCWriter
-from warcio.statusandheaders import StatusAndHeaders
 
 TOOL_VERSION = "WeBF-ForensicCapture/1.0"
 
 
 def _utc_now_str() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def validate_warc_bytes(warc_bytes: bytes) -> None:
+    """Require a non-empty gzip WARC containing at least one record."""
+    if not warc_bytes:
+        raise ValueError("WARC output is empty")
+
+    try:
+        record_count = sum(1 for _ in ArchiveIterator(gzip.GzipFile(fileobj=io.BytesIO(warc_bytes))))
+    except Exception as exc:
+        raise ValueError(f"WARC output is not parseable: {exc}") from exc
+    if record_count == 0:
+        raise ValueError("WARC output contains no records")
 
 
 def build_warc(
@@ -43,7 +58,11 @@ def build_warc(
     req_headers_text = "".join(
         f"{k}: {v}\r\n" for k, v in http_result.get("request_headers", {}).items()
     )
-    req_payload = f"GET / HTTP/1.1\r\n{req_headers_text}\r\n".encode()
+    parsed_url = urlsplit(url)
+    request_target = parsed_url.path or "/"
+    if parsed_url.query:
+        request_target += f"?{parsed_url.query}"
+    req_payload = f"GET {request_target} HTTP/1.1\r\n{req_headers_text}\r\n".encode()
     writer.write_record(
         writer.create_warc_record(
             uri=url,
@@ -150,4 +169,6 @@ def build_warc(
         )
 
     buf.seek(0)
-    return buf.read()
+    warc_bytes = buf.read()
+    validate_warc_bytes(warc_bytes)
+    return warc_bytes

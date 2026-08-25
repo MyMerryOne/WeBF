@@ -183,8 +183,9 @@
   <!-- Notice -->
   <div class="banner">
     {% block notice %}
-    This document constitutes a forensic record of a public web page captured for evidentiary purposes.
-    Integrity is guaranteed by SHA-256/SHA-512 cryptographic hashes and an RFC 3161 trusted timestamp.
+    This document records a technical web capture and the verification material included in its package.
+    Hashes and RFC 3161 results describe verifiable relationships between recorded bytes and metadata;
+    they do not alone establish authenticity, authorship, completeness, or legal admissibility.
     {% endblock %}
   </div>
 
@@ -298,9 +299,25 @@
   </table>
   </div>
 
-  <!-- 4. Timestamp -->
+  <!-- 4. Provenance and limitations -->
   <div class="section">
-  <h3>{% block section_timestamp %}4. RFC 3161 Trusted Timestamp{% endblock %}</h3>
+  <h3>{% block section_provenance %}4. Provenance and Limitations{% endblock %}</h3>
+  <table>
+    <tr><th>Host OS</th><td>{{ manifest.provenance.host_os }}</td></tr>
+    <tr><th>Python</th><td>{{ manifest.provenance.python_version }}</td></tr>
+    <tr><th>Clock</th><td>{{ manifest.provenance.clock }}</td></tr>
+    <tr><th>External signature</th><td>{{ manifest.signature.status }}; scope: {{ manifest.signature.scope }}</td></tr>
+  </table>
+  <ul class="legal-list">
+    {% for limitation in manifest.limitations %}
+    <li>{{ limitation }}</li>
+    {% endfor %}
+  </ul>
+  </div>
+
+  <!-- 5. Timestamp -->
+  <div class="section">
+  <h3>{% block section_timestamp %}5. RFC 3161 Trusted Timestamp{% endblock %}</h3>
   <table>
     <tr><th>{% block lbl_ts_tsa %}Timestamp Authority (TSA){% endblock %}</th>
         <td>{{ profile.tsa_name }} — {{ timestamp.tsa_url or manifest.tsa_url }}</td></tr>
@@ -324,12 +341,20 @@
         <td><span class="hash">{{ timestamp.data_hash_sha256 }}</span></td></tr>
     <tr><th>{% block lbl_ts_algo %}Hash algorithm{% endblock %}</th>
         <td>SHA-256</td></tr>
+    {% if timestamp.validation %}
+    <tr><th>Manifest imprint / nonce</th>
+        <td>{% if timestamp.validation.imprint_valid and timestamp.validation.nonce_valid %}
+          <span class="badge badge-ok">MATCH</span>
+        {% else %}
+          <span class="badge badge-err">NOT VALIDATED</span>
+        {% endif %}</td></tr>
+    {% endif %}
   </table>
   </div>
 
   <!-- 5. Artifact hashes (long table — breakable, heading kept attached) -->
   <div class="section-breakable">
-  <h3>{% block section_hashes %}5. Artifact Integrity (SHA-256){% endblock %}</h3>
+  <h3>{% block section_hashes %}6. Artifact Integrity (SHA-256){% endblock %}</h3>
   <table class="artifact-table">
     <tr>
       <th style="width:35%">{% block lbl_file %}File{% endblock %}</th>
@@ -346,7 +371,7 @@
 
   <!-- 6. Legal framework -->
   <div class="section">
-  <h3>{% block section_legal %}6. Legal Framework{% endblock %}</h3>
+  <h3>{% block section_legal %}7. Legal Framework{% endblock %}</h3>
   <ul class="legal-list">
     {% for ref in profile.legal_references %}
     <li>{{ ref }}</li>
@@ -360,7 +385,7 @@
   <!-- 7. Chain of custody -->
   <div class="page-break"></div>
   <div class="section">
-  <h3>{% block section_custody %}7. Chain of Custody{% endblock %}</h3>
+  <h3>{% block section_custody %}8. Chain of Custody{% endblock %}</h3>
   <div class="custody-box">
     <p>{% block custody_intro %}
     I, <strong>{{ manifest.operator.name }}</strong>, hereby declare that the web content identified above
