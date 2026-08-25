@@ -69,6 +69,8 @@ def _package_inventory(manifest: dict, names: list[str]) -> tuple[set[str], set[
         "timestamp/verify.ps1",
         "VERIFICATION.md",
     })
+    if any(name.startswith("capture/legal/") for name in manifest.get("artifacts", {})):
+        expected.add("capture/legal/legal_index.json")
     package_names = set(names)
     return expected - package_names, package_names - expected
 

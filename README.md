@@ -5,12 +5,13 @@ A Python CLI tool that captures public websites and produces tamper-evident, ind
 ## Legal Standards
 
 | Jurisdiction | Legal framework | TSA |
-|---|---|---|
+| --- | --- | --- |
 | `eu` | eIDAS Regulation 910/2014, Art. 41–42; ETSI EN 319 422 | Configured TSA; qualification must be validated |
 | `it` | D.Lgs. 82/2005 (CAD), DPCM 22/02/2013; AgID Trusted List | Configured TSA; AgID status must be validated |
 | `cz` | Zákon č. 297/2016 Sb.; Občanský soudní řád §79, §125 | FreeTSA.org (any EU-TSL TSA) |
 
 **Key properties:**
+
 - The page content never leaves your machine — only a SHA-256 hash of the manifest is sent to the TSA
 - Primary evidence format is **WARC (ISO 28500:2017)** — the only ISO-standardised web archive, used by national libraries
 - All artifacts are double-hashed (SHA-256 + SHA-512) to future-proof against hash deprecation
@@ -32,7 +33,7 @@ A Python CLI tool that captures public websites and produces tamper-evident, ind
 
 ```powershell
 pip install -r requirements.txt
-```
+```text
 
 ### 2 — Install Playwright browser (required for screenshot, PDF, and rendered HTML capture)
 
@@ -118,7 +119,7 @@ python webf.py info .\captures\webf_20260821_100130_example.com.zip
 
 Each capture produces a single `.zip` file:
 
-```
+```text
 webf_YYYYMMDD_HHMMSS_<domain>.zip
 ├── manifest.json               ← Central inventory: all file hashes + metadata
 ├── manifest.sha256             ← Detached SHA-256 of manifest (quick integrity check)
@@ -144,6 +145,29 @@ webf_YYYYMMDD_HHMMSS_<domain>.zip
     ├── verify.sh              ← OpenSSL verification script (Linux/macOS)
     └── verify.ps1             ← OpenSSL verification script (Windows/PowerShell)
 ```
+
+`timestamp/tsa_trust.pem` is intentionally not generated or included automatically.
+It must be obtained from the TSA's official certificate documentation or the
+applicable AgID/EU Trusted List, with its source, version, retrieval time, and
+validation scope recorded in the case file. The signer certificate embedded in a
+timestamp token is evidence about the signer, but is not by itself a trust anchor.
+
+### Independent timestamp verification
+
+The package contains two separate timestamp checks:
+
+1. `python webf.py verify package.zip` validates the RFC 3161 response status and
+   checks that the token imprint and nonce correspond to the exact `manifest.json`
+   bytes in the package.
+2. `timestamp/verify.sh` or `timestamp/verify.ps1` validates the TSA certificate
+   chain with OpenSSL when `timestamp/tsa_trust.pem` is supplied.
+
+Without `tsa_trust.pem`, the scripts deliberately report `TSA trust-chain NOT
+VERIFIED`; they do not download certificates, parse human-readable OpenSSL output,
+or promote a token signer certificate to a root of trust. A successful local
+imprint check therefore means that the token binds the manifest hash to a claimed
+time, while a qualified-timestamp conclusion additionally requires independent
+certificate-chain, revocation, service-status, and Trusted List validation.
 
 ---
 
@@ -172,7 +196,7 @@ python -m unittest tests.test_bundler -v
 ### What is tested
 
 | Module | Test file | Requires |
-|---|---|---|
+| --- | --- | --- |
 | `evidence/hasher.py` | `tests/test_hasher.py` | stdlib only |
 | `evidence/der_helpers.py` | `tests/test_der_helpers.py` | stdlib only |
 | `packaging/manifest.py` | `tests/test_manifest.py` | stdlib only |
@@ -187,7 +211,7 @@ Tests that require `pyasn1` (TSR parsing) are skipped automatically if the libra
 ## Full Dependency List
 
 | Package | Purpose | Required for |
-|---|---|---|
+| --- | --- | --- |
 | `playwright` | Headless Chromium: screenshot, PDF, rendered HTML | Browser capture |
 | `requests` | HTTP capture + TSA communication | All captures |
 | `dnspython` | DNS resolution (A, AAAA, MX, NS, TXT) | Network info |
@@ -215,4 +239,4 @@ Use a provider and service appearing on the current AgID/EU Trusted List for the
 Yes. Run `timestamp/verify.sh` (Linux/macOS) or `timestamp/verify.ps1` (Windows/PowerShell) — both require only OpenSSL, which is available on all modern systems. Hash verification only requires `sha256sum` or PowerShell's `Get-FileHash`.
 
 **How should external signatures be handled?**
-WeBF does not generate or store private signing keys. The first supported evidence contracts are a detached CMS/PKCS#7 signature over `manifest.json`, or a PAdES signature over the PDF report with an explicit hash link to the manifest. Store the signature and certificate chain as separate verification material, and verify them independently with the provider's tools or OpenSSL. Until this step is performed, `manifest.json` records `signature.status` as `not_applied` and the report must be treated as unsigned.
+WeBF does not generate or store private signing keys. The first supported evidence contracts are a detached CMS/PKCS#7 signature over `manifest.json`, or a PAdES signature over the PDF report with an explicit hash link to the manifest. Store the signature and certificate chain as separate verification material, and verify them independently with the provider's tools or OpenSSL. For timestamp chain verification, place a separately obtained and documented trust bundle at `timestamp/tsa_trust.pem` before running the script. Until this step is performed, `manifest.json` records `signature.status` as `not_applied` and the report must be treated as unsigned.

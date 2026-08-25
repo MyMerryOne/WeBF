@@ -317,7 +317,7 @@
 
   <!-- 5. Timestamp -->
   <div class="section">
-  <h3>{% block section_timestamp %}5. RFC 3161 Trusted Timestamp{% endblock %}</h3>
+  <h3>{% block section_timestamp %}5. RFC 3161 Timestamp{% endblock %}</h3>
   <table>
     <tr><th>{% block lbl_ts_tsa %}Timestamp Authority (TSA){% endblock %}</th>
         <td>{{ profile.tsa_name }} — {{ timestamp.tsa_url or manifest.tsa_url }}</td></tr>
@@ -341,6 +341,10 @@
         <td><span class="hash">{{ timestamp.data_hash_sha256 }}</span></td></tr>
     <tr><th>{% block lbl_ts_algo %}Hash algorithm{% endblock %}</th>
         <td>SHA-256</td></tr>
+    {% if timestamp.trust %}
+    <tr><th>Trust qualification</th>
+      <td>{{ timestamp.trust.status }}; qualification: {{ timestamp.trust.qualification }}</td></tr>
+    {% endif %}
     {% if timestamp.validation %}
     <tr><th>Manifest imprint / nonce</th>
         <td>{% if timestamp.validation.imprint_valid and timestamp.validation.nonce_valid %}
@@ -394,9 +398,9 @@
     evidentiary standards of the <strong>{{ profile.name }}</strong> jurisdiction profile.
     {% endblock %}</p>
     <p>{% block custody_integrity %}
-    The integrity of the captured content is attested by the SHA-256 and SHA-512 hash values recorded
-    in <code>manifest.json</code> and independently confirmed by the RFC 3161 timestamp token issued by
-    <strong>{{ profile.tsa_name }}</strong> at <strong>{{ timestamp.gen_time or "—" }}</strong>.
+    The captured files can be compared with the SHA-256 and SHA-512 hash values recorded in
+    <code>manifest.json</code>. The RFC 3161 token records a timestamped hash relationship;
+    signer trust and legal qualification require separate validation.
     {% endblock %}</p>
     {% block custody_extra %}{% endblock %}
     <div class="sig-line">

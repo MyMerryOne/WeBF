@@ -26,6 +26,34 @@ class TestPackageInventory(unittest.TestCase):
         self.assertIn("report/forensic_report.html", missing)
         self.assertIn("extra.txt", unexpected)
 
+    def test_accepts_generated_legal_index(self):
+        manifest = {
+            "artifacts": {"capture/legal/privacy/page.html": {"sha256": "a", "sha512": "b"}}
+        }
+        missing, unexpected = _package_inventory(
+            manifest,
+            [
+                "manifest.json",
+                "manifest.sha256",
+                "capture/legal/privacy/page.html",
+                "capture/legal/legal_index.json",
+                "report/forensic_report.html",
+                "report/forensic_report.pdf",
+                "network/dns.json",
+                "network/whois.txt",
+                "network/tls_certificate.json",
+                "timestamp/request.tsq",
+                "timestamp/response.tsr",
+                "timestamp/timestamp_info.json",
+                "timestamp/verify.sh",
+                "timestamp/verify.ps1",
+                "VERIFICATION.md",
+            ],
+        )
+
+        self.assertNotIn("capture/legal/legal_index.json", missing)
+        self.assertNotIn("capture/legal/legal_index.json", unexpected)
+
     def test_detects_unsafe_member_paths(self):
         unsafe = _unsafe_package_members(["capture/page.warc.gz", "../outside", "/absolute"])
 

@@ -101,7 +101,6 @@ def build_warc(
                 record_type="resource",
                 payload=io.BytesIO(rendered_html),
                 length=len(rendered_html),
-                warc_date=warc_date,
                 warc_headers_dict={
                     "Content-Type": "text/html; charset=utf-8",
                     "WARC-Date": warc_date,
@@ -119,7 +118,6 @@ def build_warc(
                 record_type="resource",
                 payload=io.BytesIO(screenshot),
                 length=len(screenshot),
-                warc_date=warc_date,
                 warc_headers_dict={
                     "Content-Type": "image/png",
                     "WARC-Date": warc_date,
@@ -137,7 +135,6 @@ def build_warc(
                 record_type="resource",
                 payload=io.BytesIO(pdf_bytes),
                 length=len(pdf_bytes),
-                warc_date=warc_date,
                 warc_headers_dict={
                     "Content-Type": "application/pdf",
                     "WARC-Date": warc_date,

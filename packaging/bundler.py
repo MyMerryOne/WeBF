@@ -140,20 +140,17 @@ echo "=== Verifying RFC 3161 timestamp token ==="
 echo "TSA: {tsa_url}"
 echo ""
 
-# Download the TSA CA certificate bundle if not present
-if [ ! -f "$SCRIPT_DIR/tsa_ca.pem" ]; then
-  echo "Fetching TSA certificate chain from response..."
-  openssl ts -reply -in "$SCRIPT_DIR/response.tsr" -text 2>/dev/null | \\
-    grep -A 100 "TSA Certificate:" | \\
-    openssl x509 -inform PEM > "$SCRIPT_DIR/tsa_ca.pem" 2>/dev/null || true
+if [ -f "$SCRIPT_DIR/tsa_trust.pem" ]; then
+    openssl ts -verify \\
+        -queryfile "$SCRIPT_DIR/request.tsq" \\
+        -in "$SCRIPT_DIR/response.tsr" \\
+        -CAfile "$SCRIPT_DIR/tsa_trust.pem" \\
+        && echo "RESULT: TSA trust-chain verification PASSED." \\
+        || {{ echo "RESULT: TSA trust-chain verification FAILED."; exit 1; }}
+else
+    echo "RESULT: TSA trust-chain NOT VERIFIED (provide tsa_trust.pem)."
+    echo "The signer certificate embedded in the token is not a trust anchor."
 fi
-
-openssl ts -verify \\
-  -queryfile "$SCRIPT_DIR/request.tsq" \\
-  -in "$SCRIPT_DIR/response.tsr" \\
-  -CAfile "$SCRIPT_DIR/tsa_ca.pem" \\
-  && echo "RESULT: Timestamp VERIFIED — token is authentic and has not been tampered with." \\
-  || echo "RESULT: Timestamp VERIFICATION FAILED."
 
 echo ""
 echo "=== Timestamp details ==="
@@ -175,21 +172,19 @@ Write-Host ""
 
 $tsqPath = Join-Path $ScriptDir "request.tsq"
 $tsrPath = Join-Path $ScriptDir "response.tsr"
-$caPath  = Join-Path $ScriptDir "tsa_ca.pem"
+$caPath  = Join-Path $ScriptDir "tsa_trust.pem"
 
 if (-not (Test-Path $caPath)) {{
-    Write-Host "Extracting TSA certificate from response..."
-    & openssl ts -reply -in $tsrPath -text 2>$null |
-        Select-String -Pattern "Certificate:" -Context 0,100 |
-        Out-String |
-        & openssl x509 -inform PEM -out $caPath 2>$null
-}}
-
-& openssl ts -verify -queryfile $tsqPath -in $tsrPath -CAfile $caPath
-if ($LASTEXITCODE -eq 0) {{
-    Write-Host "RESULT: Timestamp VERIFIED" -ForegroundColor Green
+    Write-Host "RESULT: TSA trust-chain NOT VERIFIED (provide tsa_trust.pem)." -ForegroundColor Yellow
+    Write-Host "The signer certificate embedded in the token is not a trust anchor."
 }} else {{
-    Write-Host "RESULT: Timestamp VERIFICATION FAILED" -ForegroundColor Red
+    & openssl ts -verify -queryfile $tsqPath -in $tsrPath -CAfile $caPath
+    if ($LASTEXITCODE -eq 0) {{
+        Write-Host "RESULT: TSA trust-chain verification PASSED" -ForegroundColor Green
+    }} else {{
+        Write-Host "RESULT: TSA trust-chain verification FAILED" -ForegroundColor Red
+        exit 1
+    }}
 }}
 
 Write-Host ""

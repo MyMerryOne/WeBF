@@ -184,6 +184,12 @@ class TestBuildVerifyScript(unittest.TestCase):
         script = _build_verify_script({"tsa_url": ""})
         self.assertTrue(script.startswith("#!/usr/bin/env bash"))
 
+    def test_uses_explicit_trust_bundle(self):
+        script = _build_verify_script({"tsa_url": ""})
+        self.assertIn("tsa_trust.pem", script)
+        self.assertNotIn("tsa_ca.pem", script)
+        self.assertNotIn("grep -A 100", script)
+
 
 class TestBuildVerifyScriptWindows(unittest.TestCase):
 
@@ -202,6 +208,11 @@ class TestBuildVerifyScriptWindows(unittest.TestCase):
     def test_contains_lastexitcode_check(self):
         script = _build_verify_script_windows({"tsa_url": ""})
         self.assertIn("LASTEXITCODE", script)
+
+    def test_uses_explicit_trust_bundle(self):
+        script = _build_verify_script_windows({"tsa_url": ""})
+        self.assertIn("tsa_trust.pem", script)
+        self.assertNotIn("tsa_ca.pem", script)
 
 
 class TestBuildVerificationReadme(unittest.TestCase):
