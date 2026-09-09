@@ -20,6 +20,7 @@ _MODAL_SELECTORS = [
 # Text patterns for "accept necessary only" cookie buttons (multilingual)
 _COOKIE_REJECT_TEXTS = [
     "Solo necessari", "Rifiuta", "Reject all", "Reject", "Necessary only",
+    "Only necessary",
     "Decline optional cookies", "Decline optional", "Allow only essential cookies",
     "Accetta solo necessari", "Odmítnout", "Ablehnen",
 ]
@@ -28,8 +29,8 @@ _COOKIE_REJECT_TEXTS = [
 def _wait_and_capture(page, url: str) -> dict[str, Any]:
     page.set_extra_http_headers({"User-Agent": TOOL_UA})
     response = page.goto(url, wait_until="networkidle", timeout=60_000)
+    _dismiss_translation_prompt(page)
     _dismiss_cookie_banner(page)
-    _dismiss_logged_out_prompt(page)
     _dismiss_logged_out_prompt(page)
 
     status_code = response.status if response else None
@@ -85,10 +86,13 @@ def _dismiss_cookie_banner(page) -> None:
     for text in _COOKIE_REJECT_TEXTS:
         try:
             btn = page.locator("button").filter(has_text=text).first
-            if btn.count() and btn.is_visible(timeout=600):
-                btn.click()
+            btn.wait_for(state="visible", timeout=3_000)
+            btn.click()
+            page.wait_for_timeout(1_500)
+            if btn.is_visible():
+                btn.evaluate("element => element.click()")
                 page.wait_for_timeout(1_500)
-                return
+            return
         except Exception:
             continue
 
@@ -119,12 +123,10 @@ def _dismiss_translation_prompt(page) -> None:
     try:
         if "airbnb.com" not in page.url:
             return
-        dialog = page.locator('[role="dialog"]:visible').filter(has_text="Translation on").first
-        if dialog.count() and dialog.is_visible(timeout=800):
-            close_button = dialog.locator('button[aria-label="Close"]').first
-            if close_button.count() and close_button.is_visible(timeout=800):
-                close_button.click()
-                page.wait_for_timeout(500)
+        close_button = page.locator('button[aria-label="Close"]').last
+        if close_button.count() and close_button.is_visible(timeout=800):
+            close_button.click()
+            page.wait_for_timeout(500)
     except Exception:
         pass
 
