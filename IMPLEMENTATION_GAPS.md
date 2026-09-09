@@ -4,7 +4,7 @@ This file tracks known limitations that affect technical interpretation, operati
 
 | Area | Gap | Risk | Planned treatment |
 | --- | --- | --- | --- |
-| Package integrity | Not every generated package member is currently represented in the manifest hash set. | A package can be incomplete without a single manifest contract detecting it. | Define and test complete package inventory coverage. |
+| Package integrity | The manifest now declares all members and `package_hashes.json` stores SHA-256/SHA-512 values for each member, but the detached package-hash index is not itself included in the RFC 3161 manifest imprint. | A party able to replace both the index and a member could defeat that secondary comparison unless an external signature or trusted transfer record protects the index. | Keep the manifest as the primary binding; add external signing or a second trusted binding for the complete package index. |
 | Capture status | Stage failures are not yet represented as a structured manifest status. | Partial collection can appear complete. | Add stage status, warnings, and omitted-artifact fields. |
 | Verification | Malformed manifests and some missing verification material need clearer non-zero outcomes. | Independent reviewers may receive ambiguous results. | Harden schema and failure validation. |
 | Browser diagnostics | Console listeners are registered after navigation. | Page-load errors can be missed. | Register diagnostics before navigation. |

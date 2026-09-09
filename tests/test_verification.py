@@ -2,6 +2,7 @@ import hashlib
 import json
 import pathlib
 import sys
+import tempfile
 import unittest
 import zipfile
 
@@ -9,7 +10,7 @@ from click.testing import CliRunner
 
 sys.path.insert(0, str(pathlib.Path(__file__).parents[1]))
 
-from webf import _package_inventory, _unsafe_package_members, cli
+from webf import _package_hash_errors, _package_inventory, _unsafe_package_members, cli
 
 
 class TestPackageInventory(unittest.TestCase):
@@ -58,6 +59,38 @@ class TestPackageInventory(unittest.TestCase):
         unsafe = _unsafe_package_members(["capture/page.warc.gz", "../outside", "/absolute"])
 
         self.assertEqual(unsafe, {"../outside", "/absolute"})
+
+    def test_uses_declared_package_members(self):
+        manifest = {
+            "package_members": ["manifest.json", "manifest.sha256", "declared.bin"],
+            "artifacts": {},
+        }
+        missing, unexpected = _package_inventory(
+            manifest,
+            ["manifest.json", "manifest.sha256", "other.bin"],
+        )
+        self.assertEqual(missing, {"declared.bin"})
+        self.assertEqual(unexpected, {"other.bin"})
+
+    def test_package_hash_index_detects_member_tampering(self):
+        member_data = b"original"
+        index = {
+            "payload.bin": {
+                "sha256": hashlib.sha256(member_data).hexdigest(),
+                "sha512": hashlib.sha512(member_data).hexdigest(),
+            }
+        }
+        index_bytes = json.dumps(index).encode()
+        with tempfile.TemporaryDirectory() as directory:
+            package = pathlib.Path(directory) / "package-hashes.zip"
+            with zipfile.ZipFile(package, "w") as archive:
+                archive.writestr("payload.bin", b"tampered")
+                archive.writestr("package_hashes.json", index_bytes)
+                archive.writestr("package_hashes.sha256", hashlib.sha256(index_bytes).hexdigest())
+            with zipfile.ZipFile(package, "r") as archive:
+                errors = _package_hash_errors(archive, archive.namelist())
+
+        self.assertIn("package hash SHA-256 mismatch: payload.bin", errors)
 
 
 class TestVerifyCommand(unittest.TestCase):
@@ -118,6 +151,49 @@ class TestVerifyCommand(unittest.TestCase):
 
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("Timestamp files are empty", result.output)
+
+    def test_missing_manifest_hash_fails_closed(self):
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            package = pathlib.Path("package.zip")
+            self._write_package(package, hashlib.sha512(b"primary evidence").hexdigest())
+            with zipfile.ZipFile(package, "r") as archive:
+                members = {
+                    name: archive.read(name)
+                    for name in archive.namelist()
+                    if name != "manifest.sha256"
+                }
+            with zipfile.ZipFile(package, "w") as archive:
+                for name, data in members.items():
+                    archive.writestr(name, data)
+            result = runner.invoke(cli, ["verify", str(package)])
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("manifest.sha256 is missing or empty", result.output)
+
+    def test_malformed_manifest_fails_closed(self):
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            package = pathlib.Path("package.zip")
+            with zipfile.ZipFile(package, "w") as archive:
+                archive.writestr("manifest.json", b"{")
+            result = runner.invoke(cli, ["verify", str(package)])
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("manifest.json is not valid JSON", result.output)
+
+    def test_invalid_artifact_object_fails_without_crashing(self):
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            package = pathlib.Path("package.zip")
+            manifest = json.dumps({"schema_version": "1.1", "artifacts": None}).encode()
+            with zipfile.ZipFile(package, "w") as archive:
+                archive.writestr("manifest.json", manifest)
+                archive.writestr("manifest.sha256", hashlib.sha256(manifest).hexdigest())
+            result = runner.invoke(cli, ["verify", str(package)])
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("artifacts must be a non-empty object", result.output)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from packaging.manifest import build_manifest, serialize_manifest
+from packaging.manifest import build_manifest, serialize_manifest, validate_manifest
 
 
 def _make_manifest(**overrides):
@@ -69,7 +69,7 @@ class TestBuildManifest(unittest.TestCase):
             self.assertIn(key, m, f"Missing top-level key: {key}")
 
     def test_schema_version(self):
-        self.assertEqual(_make_manifest()["schema_version"], "1.0")
+        self.assertEqual(_make_manifest()["schema_version"], "1.1")
 
     def test_tool_fields(self):
         m = _make_manifest()
@@ -131,6 +131,30 @@ class TestBuildManifest(unittest.TestCase):
         m = _make_manifest()
         self.assertIn("capture/page.warc.gz", m["artifacts"])
         self.assertEqual(m["artifacts"]["capture/page.warc.gz"]["sha256"], "a" * 64)
+
+    def test_package_members_include_generated_files(self):
+        members = _make_manifest()["package_members"]
+        self.assertIn("manifest.json", members)
+        self.assertIn("report/capture_report.pdf", members)
+        self.assertIn("capture/page.warc.gz", members)
+
+    def test_validate_manifest_accepts_generated_manifest(self):
+        self.assertEqual(validate_manifest(_make_manifest()), [])
+
+    def test_validate_manifest_rejects_invalid_artifact_hash(self):
+        manifest = _make_manifest()
+        manifest["artifacts"]["capture/page.warc.gz"]["sha256"] = "invalid"
+        self.assertIn("invalid SHA-256 hash: capture/page.warc.gz", validate_manifest(manifest))
+
+    def test_validate_manifest_rejects_duplicate_package_members(self):
+        manifest = _make_manifest()
+        manifest["package_members"].append("manifest.json")
+        self.assertIn("package_members must not contain duplicates", validate_manifest(manifest))
+
+    def test_validate_manifest_rejects_unsafe_package_member(self):
+        manifest = _make_manifest()
+        manifest["package_members"].append("../outside")
+        self.assertIn("package_members contains an unsafe path", validate_manifest(manifest))
 
     def test_primary_evidence_is_warc(self):
         m = _make_manifest()

@@ -79,6 +79,11 @@ python webf.py capture https://example.com `
   --operator "Paolo Romagnoli" `
   --no-browser
 
+# Skip automatic legal sub-page discovery while retaining the main capture
+python webf.py capture https://example.com `
+  --operator "Paolo Romagnoli" `
+  --no-legal
+
 # Use a custom TSA (e.g. a paid InfoCert qualified TSA for Italy)
 python webf.py capture https://example.com `
   --operator "Paolo Romagnoli" `
@@ -114,6 +119,12 @@ bash timestamp/verify.sh
 pwsh timestamp/verify.ps1
 ```
 
+The verifier also checks `package_hashes.json` and its detached SHA-256 value.
+That index contains SHA-256 and SHA-512 checksums for every other ZIP member,
+including reports, network metadata, timestamp files, verification scripts, and
+captured content. This is an additional package-integrity check; it does not
+replace an external signature or establish legal admissibility.
+
 ### Inspect a package without extracting
 
 ```powershell
@@ -130,12 +141,14 @@ Each capture produces a single `.zip` file:
 webf_YYYYMMDD_HHMMSS_<domain>.zip
 ├── manifest.json               ← Central inventory: all file hashes + metadata
 ├── manifest.sha256             ← Detached SHA-256 of manifest (quick integrity check)
+├── package_hashes.json         ← SHA-256/SHA-512 checksums for every other ZIP member
+├── package_hashes.sha256       ← Detached SHA-256 of package_hashes.json
 ├── VERIFICATION.md             ← Instructions for independent verification
 ├── report/
 │   ├── capture_report.html     ← Technical capture report (opens in any browser)
 │   └── capture_report.pdf      ← PDF version for documented review
 ├── capture/
-│   ├── page.warc.gz           ← PRIMARY EVIDENCE (ISO 28500:2017 WARC archive)
+│   ├── page.warc.gz           ← Primary captured artifact (ISO 28500:2017 WARC archive)
 │   ├── screenshot_full.png    ← Full-page rendering
 │   ├── screenshot_viewport.png
 │   ├── page.html              ← Rendered HTML (post-JavaScript execution)
@@ -229,7 +242,7 @@ Tests that require `pyasn1` (TSR parsing) are skipped automatically if the libra
 | `dnspython` | DNS resolution (A, AAAA, MX, NS, TXT) | Network info |
 | `python-whois` | WHOIS lookup | Network info |
 | `cryptography` | TLS certificate parsing | Network info |
-| `warcio` | ISO 28500 WARC archive creation | WARC (primary evidence) |
+| `warcio` | ISO 28500 WARC archive creation | WARC (primary captured artifact) |
 | `jinja2` | Report HTML templating | Report generation |
 | `click` | CLI interface | CLI |
 | `pyasn1` + `pyasn1-modules` | RFC 3161 TSR response parsing | Timestamp verification |

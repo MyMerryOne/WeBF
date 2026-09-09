@@ -7,7 +7,7 @@ This plan addresses the technical and Italian-proceeding gaps identified after t
 **Goal:** Make every generated package member covered by one explicit, independently checkable integrity contract.
 
 - Define manifest schema version `1.1` and required fields.
-- Decide whether every package member, including reports, network files, timestamp files, verification scripts, and `VERIFICATION.md`, is hashed in the manifest. Recommended: hash every member except the detached `manifest.sha256` file itself.
+- The manifest now declares every package member, and `package_hashes.json` records SHA-256/SHA-512 values for every other member. Keep this index as secondary evidence until an external signature or second trusted binding protects the index itself.
 - Add package member inventory and duplicate-name checks before reading package content.
 - Reject missing or malformed `manifest.json`, `manifest.sha256`, required hashes, invalid hash lengths, missing primary captured artifact, unsafe paths, empty timestamp material, and incomplete required artifacts.
 - Make verification fail closed for missing manifest hashes and invalid JSON instead of warning and continuing.

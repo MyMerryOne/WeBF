@@ -55,24 +55,31 @@ def _echo_err(msg: str) -> None:
 
 def _package_inventory(manifest: dict, names: list[str]) -> tuple[set[str], set[str]]:
     """Return manifest entries missing from, and unexpected in, the package."""
-    expected = {"manifest.json", "manifest.sha256", *manifest.get("artifacts", {})}
-    expected.update({
-        "report/capture_report.html",
-        "report/capture_report.pdf",
-        "network/dns.json",
-        "network/whois.txt",
-        "network/tls_certificate.json",
-        "timestamp/request.tsq",
-        "timestamp/response.tsr",
-        "timestamp/timestamp_info.json",
-        "timestamp/verify.sh",
-        "timestamp/verify.ps1",
-        "VERIFICATION.md",
-    })
-    if any(name.startswith("capture/legal/") for name in manifest.get("artifacts", {})):
-        expected.add("capture/legal/legal_index.json")
-    if manifest.get("timestamp_trust_material"):
-        expected.update({"timestamp/tsa_trust.pem", "timestamp/tsa_untrusted.pem"})
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, dict):
+        artifacts = {}
+    declared = manifest.get("package_members")
+    if isinstance(declared, list):
+        expected = set(declared)
+    else:
+        expected = {"manifest.json", "manifest.sha256", *artifacts}
+        expected.update({
+            "report/capture_report.html",
+            "report/capture_report.pdf",
+            "network/dns.json",
+            "network/whois.txt",
+            "network/tls_certificate.json",
+            "timestamp/request.tsq",
+            "timestamp/response.tsr",
+            "timestamp/timestamp_info.json",
+            "timestamp/verify.sh",
+            "timestamp/verify.ps1",
+            "VERIFICATION.md",
+        })
+        if any(name.startswith("capture/legal/") for name in artifacts):
+            expected.add("capture/legal/legal_index.json")
+        if manifest.get("timestamp_trust_material"):
+            expected.update({"timestamp/tsa_trust.pem", "timestamp/tsa_untrusted.pem"})
     package_names = set(names)
     return expected - package_names, package_names - expected
 
@@ -83,6 +90,55 @@ def _unsafe_package_members(names: list[str]) -> set[str]:
         name for name in names
         if not name or name.startswith("/") or ".." in pathlib.PurePosixPath(name).parts
     }
+
+
+def _package_hash_errors(archive: zipfile.ZipFile, names: list[str]) -> list[str]:
+    """Return errors from the per-member checksum index, if present."""
+    index_name = "package_hashes.json"
+    detached_name = "package_hashes.sha256"
+    if index_name not in names and detached_name not in names:
+        return []
+    errors: list[str] = []
+    if index_name not in names or detached_name not in names:
+        return ["package hash index is incomplete"]
+
+    index_bytes = archive.read(index_name)
+    try:
+        stored_digest = archive.read(detached_name).decode("ascii").strip()
+    except UnicodeDecodeError:
+        return ["package_hashes.sha256 is not ASCII text"]
+    computed_digest = hashlib.sha256(index_bytes).hexdigest()
+    if stored_digest != computed_digest:
+        errors.append("package_hashes.json SHA-256 mismatch")
+        return errors
+
+    try:
+        index = json.loads(index_bytes)
+    except json.JSONDecodeError as exc:
+        return [f"package_hashes.json is not valid JSON: {exc}"]
+    if not isinstance(index, dict):
+        return ["package_hashes.json must contain an object"]
+
+    package_names = set(names) - {index_name, detached_name}
+    indexed_names = set(index)
+    for name in sorted(package_names - indexed_names):
+        errors.append(f"package hash missing: {name}")
+    for name in sorted(indexed_names - package_names):
+        errors.append(f"unexpected package hash entry: {name}")
+
+    for name in sorted(package_names & indexed_names):
+        expected = index[name]
+        if not isinstance(expected, dict):
+            errors.append(f"package hash entry is not an object: {name}")
+            continue
+        data = archive.read(name)
+        actual_sha256 = hashlib.sha256(data).hexdigest()
+        actual_sha512 = hashlib.sha512(data).hexdigest()
+        if expected.get("sha256") != actual_sha256:
+            errors.append(f"package hash SHA-256 mismatch: {name}")
+        if expected.get("sha512") != actual_sha512:
+            errors.append(f"package hash SHA-512 mismatch: {name}")
+    return errors
 
 
 # ── CLI definition ────────────────────────────────────────────────────────────
@@ -514,7 +570,9 @@ def capture_cmd(
 @cli.command("verify")
 @click.argument("package_path", type=click.Path(exists=True))
 def verify_cmd(package_path: str) -> None:
-    """Verify the integrity of an evidence package (hashes + timestamp token)."""
+    """Verify the integrity of a capture package (hashes + timestamp token)."""
+    from packaging.manifest import validate_manifest
+
     path = pathlib.Path(package_path)
     click.echo(f"\nVerifying: {path}\n")
 
@@ -529,7 +587,18 @@ def verify_cmd(package_path: str) -> None:
             sys.exit(1)
 
         manifest_bytes = zf.read("manifest.json")
-        manifest = json.loads(manifest_bytes)
+        try:
+            manifest = json.loads(manifest_bytes)
+        except json.JSONDecodeError as exc:
+            _echo_err(f"manifest.json is not valid JSON: {exc}")
+            sys.exit(1)
+
+        manifest_errors = validate_manifest(manifest)
+        for error in manifest_errors:
+            _echo_err(f"Manifest contract: {error}")
+        all_ok = not manifest_errors
+        if not isinstance(manifest, dict):
+            manifest = {}
 
         missing_members, unexpected_members = _package_inventory(manifest, names)
         duplicate_members = {name for name in names if names.count(name) > 1}
@@ -542,25 +611,42 @@ def verify_cmd(package_path: str) -> None:
             _echo_err(f"Duplicate package member: {name}")
         for name in sorted(unsafe_members):
             _echo_err(f"Unsafe package member path: {name}")
-        if missing_members or unexpected_members or duplicate_members or unsafe_members:
-            all_ok = False
+        all_ok = all_ok and not (
+            missing_members or unexpected_members or duplicate_members or unsafe_members
+        )
+
+        package_hash_errors = _package_hash_errors(zf, names)
+        for error in package_hash_errors:
+            _echo_err(f"Package hash index: {error}")
+        all_ok = all_ok and not package_hash_errors
 
         # Verify manifest hash
-        stored_sha256 = (zf.read("manifest.sha256").decode().strip()
-                         if "manifest.sha256" in names else "")
+        stored_sha256 = ""
+        if "manifest.sha256" in names:
+            try:
+                stored_sha256 = zf.read("manifest.sha256").decode("ascii").strip()
+            except UnicodeDecodeError:
+                _echo_err("manifest.sha256 is not ASCII text.")
+                all_ok = False
         computed_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
-        if stored_sha256 and computed_sha256 == stored_sha256:
+        if not stored_sha256:
+            _echo_err("manifest.sha256 is missing or empty.")
+            all_ok = False
+        elif not re.fullmatch(r"[0-9a-f]{64}", stored_sha256):
+            _echo_err("manifest.sha256 is not a valid SHA-256 digest.")
+            all_ok = False
+        elif computed_sha256 == stored_sha256:
             _echo_ok("manifest.json SHA-256 matches.")
-        elif stored_sha256:
+        else:
             _echo_err(f"manifest.json SHA-256 MISMATCH!\n"
                       f"    stored  : {stored_sha256}\n"
                       f"    computed: {computed_sha256}")
             all_ok = False
-        else:
-            _echo_warn("manifest.sha256 not found; skipping manifest hash check.")
 
         # Verify artifact hashes
-        artifact_hashes: dict = manifest.get("artifacts", {})
+        artifact_hashes = manifest.get("artifacts", {})
+        if not isinstance(artifact_hashes, dict):
+            artifact_hashes = {}
         click.echo(f"\n  Checking {len(artifact_hashes)} artifact hashes:")
         for name, expected in sorted(artifact_hashes.items()):
             if name not in names:

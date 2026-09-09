@@ -70,6 +70,18 @@ class TestAssemblePackage(unittest.TestCase):
     def test_manifest_sha256_present(self):
         self.assertIn("manifest.sha256", self._names())
 
+    def test_package_hash_index_present(self):
+        names = self._names()
+        self.assertIn("package_hashes.json", names)
+        self.assertIn("package_hashes.sha256", names)
+
+    def test_package_hash_index_covers_members(self):
+        data = _default_package()
+        with zipfile.ZipFile(io.BytesIO(data), "r") as zf:
+            index = json.loads(zf.read("package_hashes.json"))
+            names = set(zf.namelist()) - {"package_hashes.json", "package_hashes.sha256"}
+        self.assertEqual(set(index), names)
+
     def test_report_html_present(self):
         self.assertIn("report/capture_report.html", self._names())
         self.assertIn("report/capture_report.pdf", self._names())
@@ -239,6 +251,10 @@ class TestBuildVerificationReadme(unittest.TestCase):
     def test_contains_powershell_instruction(self):
         readme = _build_verification_readme({"sha256": "a" * 64, "sha512": "b" * 128}, {})
         self.assertIn("Get-FileHash", readme)
+
+    def test_describes_package_hash_index(self):
+        readme = _build_verification_readme({"sha256": "a" * 64, "sha512": "b" * 128}, {})
+        self.assertIn("package_hashes.json", readme)
 
     def test_multiple_artifacts_all_listed(self):
         hashes = {

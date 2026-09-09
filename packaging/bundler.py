@@ -1,5 +1,6 @@
 """Assemble the final ZIP capture package."""
 import io
+import hashlib
 import json
 import zipfile
 from typing import Any
@@ -24,108 +25,113 @@ def assemble_package(
     timestamp_untrusted_pem: bytes = b"",
 ) -> bytes:
     buf = io.BytesIO()
+    members: dict[str, bytes] = {}
+
+    members["manifest.json"] = manifest_bytes
+    members["manifest.sha256"] = manifest_hashes["sha256"].encode()
+
+    members["report/capture_report.html"] = report_html
+    members["report/capture_report.pdf"] = report_pdf
+
+    members["capture/page.warc.gz"] = warc_bytes
+    if screenshot_full:
+        members["capture/screenshot_full.png"] = screenshot_full
+    if screenshot_vp:
+        members["capture/screenshot_viewport.png"] = screenshot_vp
+    if rendered_html:
+        members["capture/page.html"] = rendered_html
+    if page_pdf:
+        members["capture/page.pdf"] = page_pdf
+    members["capture/http_response_raw.bin"] = http_raw_bytes
+
+    if legal_captures:
+        legal_index = []
+        for lc in legal_captures:
+            entry: dict[str, Any] = {
+                "label": lc["label"],
+                "slug": lc["slug"],
+                "url": lc["url"],
+                "embedded": lc.get("embedded", False),
+            }
+            if not lc.get("embedded"):
+                entry["status_code"] = lc["http_result"].get("status_code")
+            else:
+                entry["note"] = (
+                    "Content is embedded in the main page. "
+                    "See capture/page.warc.gz and capture/http_response_raw.bin."
+                )
+            legal_index.append(entry)
+        members["capture/legal/legal_index.json"] = json.dumps(
+            legal_index, indent=2, ensure_ascii=False
+        ).encode()
+        for lc in legal_captures:
+            slug = lc["slug"]
+            if lc.get("embedded"):
+                if lc.get("raw_html"):
+                    members[f"capture/legal/{slug}/embedded_extract.html"] = lc["raw_html"]
+                if lc.get("plain_text"):
+                    members[f"capture/legal/{slug}/embedded_extract.txt"] = lc["plain_text"]
+                if lc.get("modal_screenshot_png"):
+                    members[f"capture/legal/{slug}/modal_screenshot.png"] = lc["modal_screenshot_png"]
+                if lc.get("modal_rendered_html"):
+                    members[f"capture/legal/{slug}/modal_rendered.html"] = lc["modal_rendered_html"]
+                if lc.get("modal_pdf_bytes"):
+                    members[f"capture/legal/{slug}/modal_page.pdf"] = lc["modal_pdf_bytes"]
+            else:
+                if lc.get("raw_html"):
+                    members[f"capture/legal/{slug}/page.html"] = lc["raw_html"]
+                if lc.get("raw_bytes"):
+                    members[f"capture/legal/{slug}/http_response_raw.bin"] = lc["raw_bytes"]
+
+    dns_json = json.dumps(network_result.get("dns", {}), indent=2, ensure_ascii=False).encode()
+    members["network/dns.json"] = dns_json
+
+    whois_raw = network_result.get("whois", {}).get("raw", "") or ""
+    members["network/whois.txt"] = whois_raw.encode("utf-8", errors="replace")
+
+    tls_data = network_result.get("tls") or {}
+    members["network/tls_certificate.json"] = json.dumps(tls_data, indent=2).encode()
+
+    members["timestamp/request.tsq"] = timestamp_result.get("tsq_bytes", b"")
+    members["timestamp/response.tsr"] = timestamp_result.get("tsr_bytes", b"")
+
+    ts_info = {
+        "tsa_url": timestamp_result.get("tsa_url", ""),
+        "data_hash_sha256": timestamp_result.get("data_hash_hex", ""),
+        **timestamp_result.get("parsed", {}),
+    }
+    members["timestamp/timestamp_info.json"] = json.dumps(ts_info, indent=2).encode()
+
+    verify_sh = _build_verify_script(timestamp_result)
+    members["timestamp/verify.sh"] = verify_sh.encode()
+
+    verify_ps1 = _build_verify_script_windows(timestamp_result)
+    members["timestamp/verify.ps1"] = verify_ps1.encode()
+    if timestamp_trust_pem:
+        members["timestamp/tsa_trust.pem"] = timestamp_trust_pem
+    if timestamp_untrusted_pem:
+        members["timestamp/tsa_untrusted.pem"] = timestamp_untrusted_pem
+
+    members["VERIFICATION.md"] = _build_verification_readme(
+        manifest_hashes, artifact_hashes
+    ).encode()
+
+    package_hashes = {
+        name: {
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "sha512": hashlib.sha512(data).hexdigest(),
+        }
+        for name, data in sorted(members.items())
+    }
+    package_hashes_bytes = json.dumps(
+        package_hashes, indent=2, ensure_ascii=False
+    ).encode()
+    members["package_hashes.json"] = package_hashes_bytes
+    members["package_hashes.sha256"] = hashlib.sha256(package_hashes_bytes).hexdigest().encode()
 
     with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("manifest.json", manifest_bytes)
-        zf.writestr("manifest.sha256", manifest_hashes["sha256"].encode())
-
-        zf.writestr("report/capture_report.html", report_html)
-        zf.writestr("report/capture_report.pdf", report_pdf)
-
-        zf.writestr("capture/page.warc.gz", warc_bytes)
-        if screenshot_full:
-            zf.writestr("capture/screenshot_full.png", screenshot_full)
-        if screenshot_vp:
-            zf.writestr("capture/screenshot_viewport.png", screenshot_vp)
-        if rendered_html:
-            zf.writestr("capture/page.html", rendered_html)
-        if page_pdf:
-            zf.writestr("capture/page.pdf", page_pdf)
-        zf.writestr("capture/http_response_raw.bin", http_raw_bytes)
-
-        if legal_captures:
-            legal_index = []
-            for lc in legal_captures:
-                entry: dict[str, Any] = {
-                    "label": lc["label"],
-                    "slug": lc["slug"],
-                    "url": lc["url"],
-                    "embedded": lc.get("embedded", False),
-                }
-                if not lc.get("embedded"):
-                    entry["status_code"] = lc["http_result"].get("status_code")
-                else:
-                    entry["note"] = (
-                        "Content is embedded in the main page. "
-                        "See capture/page.warc.gz and capture/http_response_raw.bin."
-                    )
-                legal_index.append(entry)
-            zf.writestr(
-                "capture/legal/legal_index.json",
-                json.dumps(legal_index, indent=2, ensure_ascii=False).encode(),
-            )
-            for lc in legal_captures:
-                slug = lc["slug"]
-                if lc.get("embedded"):
-                    if lc.get("raw_html"):
-                        zf.writestr(f"capture/legal/{slug}/embedded_extract.html", lc["raw_html"])
-                    if lc.get("plain_text"):
-                        zf.writestr(f"capture/legal/{slug}/embedded_extract.txt", lc["plain_text"])
-                    if lc.get("modal_screenshot_png"):
-                        zf.writestr(f"capture/legal/{slug}/modal_screenshot.png", lc["modal_screenshot_png"])
-                    if lc.get("modal_rendered_html"):
-                        zf.writestr(f"capture/legal/{slug}/modal_rendered.html", lc["modal_rendered_html"])
-                    if lc.get("modal_pdf_bytes"):
-                        zf.writestr(f"capture/legal/{slug}/modal_page.pdf", lc["modal_pdf_bytes"])
-                else:
-                    if lc.get("raw_html"):
-                        zf.writestr(f"capture/legal/{slug}/page.html", lc["raw_html"])
-                    if lc.get("raw_bytes"):
-                        zf.writestr(
-                            f"capture/legal/{slug}/http_response_raw.bin", lc["raw_bytes"]
-                        )
-
-        dns_json = json.dumps(
-            network_result.get("dns", {}), indent=2, ensure_ascii=False
-        ).encode()
-        zf.writestr("network/dns.json", dns_json)
-
-        whois_raw = network_result.get("whois", {}).get("raw", "") or ""
-        zf.writestr("network/whois.txt", whois_raw.encode("utf-8", errors="replace"))
-
-        tls_data = network_result.get("tls") or {}
-        zf.writestr(
-            "network/tls_certificate.json",
-            json.dumps(tls_data, indent=2).encode(),
-        )
-
-        zf.writestr("timestamp/request.tsq", timestamp_result.get("tsq_bytes", b""))
-        zf.writestr("timestamp/response.tsr", timestamp_result.get("tsr_bytes", b""))
-
-        ts_info = {
-            "tsa_url": timestamp_result.get("tsa_url", ""),
-            "data_hash_sha256": timestamp_result.get("data_hash_hex", ""),
-            **timestamp_result.get("parsed", {}),
-        }
-        zf.writestr(
-            "timestamp/timestamp_info.json",
-            json.dumps(ts_info, indent=2).encode(),
-        )
-
-        verify_sh = _build_verify_script(timestamp_result)
-        zf.writestr("timestamp/verify.sh", verify_sh.encode())
-
-        verify_ps1 = _build_verify_script_windows(timestamp_result)
-        zf.writestr("timestamp/verify.ps1", verify_ps1.encode())
-        if timestamp_trust_pem:
-            zf.writestr("timestamp/tsa_trust.pem", timestamp_trust_pem)
-        if timestamp_untrusted_pem:
-            zf.writestr("timestamp/tsa_untrusted.pem", timestamp_untrusted_pem)
-
-        zf.writestr(
-            "VERIFICATION.md",
-            _build_verification_readme(manifest_hashes, artifact_hashes).encode(),
-        )
+        for name, data in members.items():
+            zf.writestr(name, data)
 
     buf.seek(0)
     return buf.read()
@@ -247,4 +253,14 @@ def _build_verification_readme(
         "These hashes can be independently verified against the files "
         "inside this ZIP to confirm no tampering has occurred."
     )
+    lines.extend([
+        "",
+        "## Complete Package Member Checksums",
+        "",
+        "`package_hashes.json` contains SHA-256 and SHA-512 values for every other ZIP member.",
+        "Verify its detached SHA-256 before comparing the individual member values:",
+        "```",
+        "sha256sum package_hashes.json",
+        "```",
+    ])
     return "\n".join(lines)
