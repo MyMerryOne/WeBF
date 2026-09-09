@@ -294,7 +294,7 @@
         <td><pre style="font-size:8pt; white-space:pre-wrap; word-break:break-all; margin:0;">{{ manifest.network.whois_raw }}</pre></td></tr>
     {% else %}
     <tr><th>{% block lbl_whois_na %}WHOIS{% endblock %}</th>
-        <td>{% block lbl_whois_nodata %}Lookup unavailable — see network/whois.txt in evidence package{% endblock %}</td></tr>
+        <td>{% block lbl_whois_nodata %}Lookup unavailable — see network/whois.txt in capture package{% endblock %}</td></tr>
     {% endif %}
   </table>
   </div>
@@ -397,7 +397,7 @@
     I, <strong>{{ manifest.operator.name }}</strong>, hereby declare that the web content identified above
     was captured on <strong>{{ manifest.timing.capture_start_utc }}</strong> (UTC) using
     <strong>{{ manifest.tool.name }} v{{ manifest.tool.version }}</strong> in accordance with the
-    evidentiary standards of the <strong>{{ profile.name }}</strong> jurisdiction profile.
+    documented technical requirements of the <strong>{{ profile.name }}</strong> jurisdiction profile.
     {% endblock %}</p>
     <p>{% block custody_integrity %}
     The captured files can be compared with the SHA-256 and SHA-512 hash values recorded in
@@ -415,7 +415,7 @@
   <div class="footer">
     WeBF v{{ manifest.tool.version }} &nbsp;|&nbsp;
     Package generated: {{ manifest.timing.capture_end_utc }} UTC &nbsp;|&nbsp;
-    Primary evidence: <code>capture/page.warc.gz</code> (ISO 28500:2017)
+    Primary captured artifact: <code>capture/page.warc.gz</code> (ISO 28500:2017)
   </div>
 
 </div>

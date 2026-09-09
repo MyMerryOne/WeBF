@@ -1,8 +1,7 @@
-"""Assemble the final ZIP evidence package."""
+"""Assemble the final ZIP capture package."""
 import io
 import json
 import zipfile
-import datetime
 from typing import Any
 
 
@@ -216,7 +215,7 @@ def _build_verification_readme(
     artifact_hashes: dict[str, dict[str, str]],
 ) -> str:
     lines = [
-        "# Evidence Package Verification",
+        "# Capture Package Integrity Verification",
         "",
         "## Manifest Integrity",
         "",

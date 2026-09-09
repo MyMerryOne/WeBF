@@ -1,6 +1,5 @@
 """SHA-256 and SHA-512 hashing for all captured artifacts."""
 import hashlib
-from typing import Any
 
 
 def hash_bytes(data: bytes) -> dict[str, str]:

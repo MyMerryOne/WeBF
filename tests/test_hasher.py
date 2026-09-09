@@ -75,7 +75,7 @@ class TestHashArtifacts(unittest.TestCase):
         self.assertEqual(set(result.keys()), set(artifacts.keys()))
 
     def test_hash_values_match_hash_bytes(self):
-        data = b"forensic test data"
+        data = b"technical capture test data"
         result = hash_artifacts({"evidence.bin": data})
         expected = hash_bytes(data)
         self.assertEqual(result["evidence.bin"]["sha256"], expected["sha256"])

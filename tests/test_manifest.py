@@ -75,6 +75,7 @@ class TestBuildManifest(unittest.TestCase):
         m = _make_manifest()
         self.assertIn("name", m["tool"])
         self.assertIn("version", m["tool"])
+        self.assertEqual(m["tool"]["name"], "WeBF-CaptureVerification")
 
     def test_capture_url(self):
         m = _make_manifest(url="https://example.com/page")

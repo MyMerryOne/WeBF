@@ -5,7 +5,7 @@ build-backend = "setuptools.backends.legacy:build"
 [project]
 name = "webf"
 version = "1.0.0"
-description = "Web Forensic Capture Tool for EU court proceedings"
+description = "Web Capture and Verification Tool for documented technical review"
 requires-python = ">=3.10"
 dependencies = [
     "playwright>=1.40.0",
@@ -22,4 +22,33 @@ dependencies = [
 
 [project.scripts]
 webf = "webf:cli"
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.2.0",
+    "mypy>=1.8.0",
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.3.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+lint.select = ["E4", "E7", "E9", "F"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.coverage.run]
+branch = true
+source = ["capture", "evidence", "jurisdiction", "packaging"]
+
+[tool.coverage.report]
+show_missing = true
 

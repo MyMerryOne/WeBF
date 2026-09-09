@@ -18,8 +18,17 @@ venv/
 env/
 ENV/
 
-# WeBF capture output — never commit evidence packages
+# WeBF capture output — never commit capture packages or derived reports
 captures/
+*.zip
+*.warc
+*.warc.gz
+*.manifest
+*.report.html
+*.report.pdf
+*.tsq
+*.tsr
+*.log
 
 # Test / coverage artefacts
 .pytest_cache/
@@ -40,7 +49,11 @@ Thumbs.db
 
 # Secrets / credentials
 .env
+*.env
+*.pem
 *.pem
 *.key
 *.p12
 *.pfx
+credentials/
+secrets/

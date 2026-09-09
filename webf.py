@@ -1,4 +1,4 @@
-"""WeBF — Web Forensic Capture Tool.
+"""WeBF — Web Capture and Verification Tool.
 
 Usage:
   webf capture <URL> --operator NAME [--case-ref REF] [--notes TEXT]
@@ -91,7 +91,7 @@ def _unsafe_package_members(names: list[str]) -> set[str]:
 @click.group()
 @click.version_option(TOOL_VERSION, prog_name="webf")
 def cli() -> None:
-    """WeBF — Web Forensic Capture Tool for EU court proceedings."""
+    """WeBF — Web Capture and Verification Tool for documented technical review."""
 
 
 # ── capture command ───────────────────────────────────────────────────────────
@@ -148,7 +148,7 @@ def capture_cmd(
     operator_role: str,
     operator_cf: str,
 ) -> None:
-    """Capture a public web page and produce a court-ready evidence package."""
+    """Capture a public web page and produce an integrity-verifiable capture package."""
     from jurisdiction import get_profile
     from capture.http_raw import capture_http, build_raw_http_bytes
     from capture.network import capture_network
@@ -497,12 +497,12 @@ def capture_cmd(
 
     # Summary
     click.echo("")
-    click.echo(click.style("── Evidence Package Summary ─────────────────────────", bold=True))
+    click.echo(click.style("── Capture Package Summary ──────────────────────────", bold=True))
     click.echo(f"  Package   : {pkg_path}")
     click.echo(f"  Manifest  : SHA-256 = {manifest_hashes['sha256']}")
     click.echo(f"  Timestamp : {ts_info_for_report.get('gen_time') or 'not available'}")
     click.echo(f"  TSA       : {effective_tsa}")
-    click.echo(f"  Primary   : capture/page.warc.gz (ISO 28500:2017)")
+    click.echo("  Primary   : capture/page.warc.gz (ISO 28500:2017)")
     click.echo("")
     click.echo("  To verify: python webf.py verify " + str(pkg_path))
     click.echo("")
@@ -647,7 +647,7 @@ def info_cmd(package_path: str) -> None:
     o = manifest.get("operator", {})
 
     click.echo(f"\n{'─'*55}")
-    click.echo(f"  WeBF Evidence Package — {path.name}")
+    click.echo(f"  WeBF Capture Package — {path.name}")
     click.echo(f"{'─'*55}")
     click.echo(f"  URL        : {c.get('target_url', '—')}")
     click.echo(f"  HTTP status: {c.get('http_status', '—')} {c.get('http_reason', '')}")

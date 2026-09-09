@@ -1,11 +1,11 @@
-"""Build the JSON manifest — the root-of-trust for the evidence package."""
+"""Build the JSON manifest for an integrity-verifiable capture package."""
 import json
 import datetime
 import platform
 from typing import Any
 
 TOOL_VERSION = "1.0.0"
-TOOL_NAME = "WeBF-ForensicCapture"
+TOOL_NAME = "WeBF-CaptureVerification"
 
 
 def build_manifest(

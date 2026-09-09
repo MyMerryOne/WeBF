@@ -1,4 +1,4 @@
-"""Render the Jinja2 HTML forensic report and convert to PDF via Playwright."""
+"""Render the Jinja2 technical capture report and convert it to PDF."""
 import pathlib
 import tempfile
 from typing import Any

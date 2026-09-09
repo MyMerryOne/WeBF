@@ -1,6 +1,6 @@
-# WeBF — Web Forensic Capture Tool
+# WeBF — Web Capture and Verification Tool
 
-A Python CLI tool that captures public websites and produces tamper-evident, independently verifiable technical evidence packages for review in EU and Italian proceedings.
+A Python CLI tool that captures public websites and produces integrity-verifiable technical capture packages for documented review in EU and Italian proceedings.
 
 ## Legal Standards
 
@@ -13,7 +13,7 @@ A Python CLI tool that captures public websites and produces tamper-evident, ind
 **Key properties:**
 
 - The page content never leaves your machine — only a SHA-256 hash of the manifest is sent to the TSA
-- Primary evidence format is **WARC (ISO 28500:2017)** — the only ISO-standardised web archive, used by national libraries
+- Primary captured artifact is **WARC (ISO 28500:2017)** — the only ISO-standardised web archive, used by national libraries
 - All artifacts are double-hashed (SHA-256 + SHA-512) to future-proof against hash deprecation
 - RFC 3161 timestamp token records a third-party time/hash relationship; qualification is not inferred from the endpoint URL
 
@@ -98,7 +98,7 @@ the package inventory. Their presence and cryptographic validity do not, by
 themselves, establish current AgID qualification; that status must be documented
 against the applicable Trusted List at review time.
 
-### Verify an evidence package
+### Verify a capture package
 
 ```powershell
 python webf.py verify .\captures\webf_20260821_100130_example.com.zip
@@ -132,8 +132,8 @@ webf_YYYYMMDD_HHMMSS_<domain>.zip
 ├── manifest.sha256             ← Detached SHA-256 of manifest (quick integrity check)
 ├── VERIFICATION.md             ← Instructions for independent verification
 ├── report/
-│   ├── forensic_report.html    ← Human-readable report (opens in any browser)
-│   └── forensic_report.pdf    ← PDF version for court submission
+│   ├── capture_report.html     ← Technical capture report (opens in any browser)
+│   └── capture_report.pdf      ← PDF version for documented review
 ├── capture/
 │   ├── page.warc.gz           ← PRIMARY EVIDENCE (ISO 28500:2017 WARC archive)
 │   ├── screenshot_full.png    ← Full-page rendering
@@ -238,13 +238,13 @@ Tests that require `pyasn1` (TSR parsing) are skipped automatically if the libra
 
 ## Frequently Asked Questions
 
-**Why is the WARC the primary evidence and not the PDF/screenshot?**
+**Why is the WARC the primary captured artifact and not the PDF/screenshot?**
 WARC (ISO 28500:2017) is a structured archive format suitable for preserving HTTP capture records. PDFs, screenshots, and rendered HTML are derived representations and should be assessed together with the underlying HTTP/WARC evidence.
 
 **Why is only a hash sent to the TSA?**
 RFC 3161 only requires the hash of the data to be timestamped. The page content never leaves your machine. The resulting token records a third-party time/hash relationship; its signature, trust chain, and qualification must still be validated.
 
-**What TSA should I use for Italian courts?**
+**What TSA should I use for an Italian jurisdiction profile?**
 Use a provider and service appearing on the current AgID/EU Trusted List for the relevant qualified service, and preserve the list/version and validation time with the case record. An endpoint configured in `jurisdiction/it.py` is not proof of qualification.
 
 **Can I verify the package without installing WeBF?**
