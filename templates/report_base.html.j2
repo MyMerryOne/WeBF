@@ -169,8 +169,8 @@
   <!-- Header -->
   <div class="header">
     <div class="header-left">
-      <h1>{% block doc_title %}Web Forensic Capture Report{% endblock %}</h1>
-      <h2>{% block doc_subtitle %}WeBF-ForensicCapture v{{ manifest.tool.version }}{% endblock %}</h2>
+      <h1>{% block doc_title %}Web Capture Report{% endblock %}</h1>
+      <h2>{% block doc_subtitle %}WeBF v{{ manifest.tool.version }}{% endblock %}</h2>
     </div>
     <div class="header-right">
       <strong>{% block case_label %}Case{% endblock %}:</strong> {{ manifest.operator.case_reference or "—" }}<br>
@@ -303,16 +303,18 @@
   <div class="section">
   <h3>{% block section_provenance %}4. Provenance and Limitations{% endblock %}</h3>
   <table>
-    <tr><th>Host OS</th><td>{{ manifest.provenance.host_os }}</td></tr>
-    <tr><th>Python</th><td>{{ manifest.provenance.python_version }}</td></tr>
-    <tr><th>Clock</th><td>{{ manifest.provenance.clock }}</td></tr>
-    <tr><th>External signature</th><td>{{ manifest.signature.status }}; scope: {{ manifest.signature.scope }}</td></tr>
+    <tr><th>{% block lbl_host_os %}Host OS{% endblock %}</th><td>{{ manifest.provenance.host_os }}</td></tr>
+    <tr><th>{% block lbl_python %}Python{% endblock %}</th><td>{{ manifest.provenance.python_version }}</td></tr>
+    <tr><th>{% block lbl_clock %}Clock{% endblock %}</th><td>{{ manifest.provenance.clock }}</td></tr>
+    <tr><th>{% block lbl_external_signature %}External signature{% endblock %}</th><td>{{ manifest.signature.status }}; {% block lbl_signature_scope %}scope{% endblock %}: {{ manifest.signature.scope }}</td></tr>
   </table>
-  <ul class="legal-list">
-    {% for limitation in manifest.limitations %}
-    <li>{{ limitation }}</li>
-    {% endfor %}
-  </ul>
+  {% block provenance_limitations %}
+    <ul class="legal-list">
+      {% for limitation in manifest.limitations %}
+      <li>{{ limitation }}</li>
+      {% endfor %}
+    </ul>
+  {% endblock %}
   </div>
 
   <!-- 5. Timestamp -->
@@ -356,7 +358,7 @@
   </table>
   </div>
 
-  <!-- 5. Artifact hashes (long table — breakable, heading kept attached) -->
+  <!-- 6. Artifact hashes (long table — breakable, heading kept attached) -->
   <div class="section-breakable">
   <h3>{% block section_hashes %}6. Artifact Integrity (SHA-256){% endblock %}</h3>
   <table class="artifact-table">
@@ -373,7 +375,7 @@
   </table>
   </div>
 
-  <!-- 6. Legal framework -->
+  <!-- 7. Legal framework -->
   <div class="section">
   <h3>{% block section_legal %}7. Legal Framework{% endblock %}</h3>
   <ul class="legal-list">
@@ -386,7 +388,7 @@
 
   {% block extra_sections %}{% endblock %}
 
-  <!-- 7. Chain of custody -->
+  <!-- 8. Chain of custody -->
   <div class="page-break"></div>
   <div class="section">
   <h3>{% block section_custody %}8. Chain of Custody{% endblock %}</h3>
@@ -411,7 +413,7 @@
 
   <!-- Footer -->
   <div class="footer">
-    WeBF-ForensicCapture v{{ manifest.tool.version }} &nbsp;|&nbsp;
+    WeBF v{{ manifest.tool.version }} &nbsp;|&nbsp;
     Package generated: {{ manifest.timing.capture_end_utc }} UTC &nbsp;|&nbsp;
     Primary evidence: <code>capture/page.warc.gz</code> (ISO 28500:2017)
   </div>

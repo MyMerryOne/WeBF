@@ -5,6 +5,8 @@ together with a human-readable summary of the token.  The page content is never
 sent — only a SHA-256 hash of the manifest leaves the machine.
 """
 import hashlib
+import subprocess
+import tempfile
 from typing import Any
 
 import requests
@@ -126,6 +128,44 @@ def validate_timestamp_response(
         }
 
 
+def verify_timestamp_chain(
+    tsq_bytes: bytes,
+    tsr_bytes: bytes,
+    trust_pem: bytes,
+    untrusted_pem: bytes = b"",
+) -> dict[str, Any]:
+    """Verify an RFC 3161 token against explicitly supplied certificates."""
+    if not trust_pem:
+        return {"verified": False, "error": "no TSA trust anchor supplied"}
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            root_path = f"{tmp}/tsa_trust.pem"
+            untrusted_path = f"{tmp}/tsa_untrusted.pem"
+            tsq_path = f"{tmp}/request.tsq"
+            tsr_path = f"{tmp}/response.tsr"
+            with open(root_path, "wb") as stream:
+                stream.write(trust_pem)
+            with open(tsq_path, "wb") as stream:
+                stream.write(tsq_bytes)
+            with open(tsr_path, "wb") as stream:
+                stream.write(tsr_bytes)
+            command = [
+                "openssl", "ts", "-verify",
+                "-queryfile", tsq_path,
+                "-in", tsr_path,
+                "-CAfile", root_path,
+            ]
+            if untrusted_pem:
+                with open(untrusted_path, "wb") as stream:
+                    stream.write(untrusted_pem)
+                command.extend(["-untrusted", untrusted_path])
+            result = subprocess.run(command, capture_output=True, text=True, check=False)
+            return {
+                "verified": result.returncode == 0,
+                "output": (result.stdout + result.stderr).strip()[-2000:],
+            }
+    except OSError as exc:
+        return {"verified": False, "error": f"OpenSSL unavailable: {exc}"}
 def request_timestamp(
     manifest_bytes: bytes,
     tsa_url: str,

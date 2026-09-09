@@ -57,8 +57,8 @@ def _package_inventory(manifest: dict, names: list[str]) -> tuple[set[str], set[
     """Return manifest entries missing from, and unexpected in, the package."""
     expected = {"manifest.json", "manifest.sha256", *manifest.get("artifacts", {})}
     expected.update({
-        "report/forensic_report.html",
-        "report/forensic_report.pdf",
+        "report/capture_report.html",
+        "report/capture_report.pdf",
         "network/dns.json",
         "network/whois.txt",
         "network/tls_certificate.json",
@@ -71,6 +71,8 @@ def _package_inventory(manifest: dict, names: list[str]) -> tuple[set[str], set[
     })
     if any(name.startswith("capture/legal/") for name in manifest.get("artifacts", {})):
         expected.add("capture/legal/legal_index.json")
+    if manifest.get("timestamp_trust_material"):
+        expected.update({"timestamp/tsa_trust.pem", "timestamp/tsa_untrusted.pem"})
     package_names = set(names)
     return expected - package_names, package_names - expected
 
@@ -154,7 +156,7 @@ def capture_cmd(
     from capture.legal_links import find_legal_links, extract_embedded_section
     from capture.browser import capture_legal_modals
     from evidence.hasher import hash_bytes, hash_artifacts
-    from evidence.timestamper import request_timestamp
+    from evidence.timestamper import request_timestamp, verify_timestamp_chain
     from evidence.warc_writer import build_warc
     from packaging.manifest import build_manifest, serialize_manifest
     from packaging.report import render_html_report, render_pdf_report
@@ -162,6 +164,22 @@ def capture_cmd(
 
     profile = get_profile(jurisdiction)
     effective_tsa = tsa_url or profile["tsa_url"]
+    trust_dir = pathlib.Path(__file__).parent / "timestamp"
+    timestamp_trust_pem = (
+        (trust_dir / "tsa_trust.pem").read_bytes()
+        if (trust_dir / "tsa_trust.pem").is_file()
+        else b""
+    )
+    timestamp_untrusted_pem = (
+        (trust_dir / "tsa_untrusted.pem").read_bytes()
+        if (trust_dir / "tsa_untrusted.pem").is_file()
+        else b""
+    )
+    if jurisdiction == "it" and (not timestamp_trust_pem or not timestamp_untrusted_pem):
+        raise click.ClickException(
+            "Italian capture requires timestamp/tsa_trust.pem and "
+            "timestamp/tsa_untrusted.pem for TSA chain validation."
+        )
 
     extra_op: dict[str, str] = {}
     if jurisdiction == "it":
@@ -171,7 +189,7 @@ def capture_cmd(
             extra_op["operator_cf"] = operator_cf
 
     click.echo("")
-    click.echo(click.style("WeBF — Web Forensic Capture", bold=True))
+    click.echo(click.style("WeBF — Web Capture", bold=True))
     click.echo(f"  Target   : {url}")
     click.echo(f"  Operator : {operator}")
     click.echo(f"  Jurisdiction: {profile['name']}")
@@ -291,6 +309,10 @@ def capture_cmd(
         "capture/page.warc.gz": warc_bytes,
         "capture/http_response_raw.bin": raw_http_bytes,
     }
+    if timestamp_trust_pem:
+        artifacts["timestamp/tsa_trust.pem"] = timestamp_trust_pem
+    if timestamp_untrusted_pem:
+        artifacts["timestamp/tsa_untrusted.pem"] = timestamp_untrusted_pem
     if browser_result.get("screenshot_full_png"):
         artifacts["capture/screenshot_full.png"] = browser_result["screenshot_full_png"]
     if browser_result.get("screenshot_viewport_png"):
@@ -339,6 +361,7 @@ def capture_cmd(
         artifact_hashes=artifact_hashes,
         tsa_url=effective_tsa,
         extra_operator_fields=extra_op or None,
+        timestamp_trust_material=bool(timestamp_trust_pem and timestamp_untrusted_pem),
     )
     manifest_bytes = serialize_manifest(manifest)
     manifest_hashes = hash_bytes(manifest_bytes)
@@ -366,7 +389,14 @@ def capture_cmd(
         try:
             timestamp_result = request_timestamp(manifest_bytes, tsa_candidate_url)
             ts_status = timestamp_result["parsed"].get("status", "unknown")
-            if ts_status in ("granted", "grantedWithMods"):
+            trust_result = verify_timestamp_chain(
+                timestamp_result.get("tsq_bytes", b""),
+                timestamp_result.get("tsr_bytes", b""),
+                timestamp_trust_pem,
+                timestamp_untrusted_pem,
+            )
+            timestamp_result["parsed"].setdefault("trust", {})["chain_verified"] = trust_result["verified"]
+            if ts_status in ("granted", "grantedWithMods") and trust_result["verified"]:
                 ts_used_tsa = tsa_candidate_url
                 _echo_ok(
                     f"Timestamp received from {tsa_label}: "
@@ -374,7 +404,10 @@ def capture_cmd(
                 )
                 break
             else:
-                _echo_warn(f"  {tsa_label} returned status: {ts_status}. Trying next TSA...")
+                _echo_warn(
+                    f"  {tsa_label} timestamp status/trust check failed: {ts_status}; "
+                    "trying next TSA..."
+                )
                 timestamp_result = {}
         except Exception as exc:
             _echo_warn(f"  {tsa_label} unreachable: {exc}. Trying next TSA...")
@@ -414,7 +447,7 @@ def capture_cmd(
         effective_tsa = ts_used_tsa
 
     # 9. Generate reports
-    _echo_step("Generating forensic report (HTML + PDF)...")
+    _echo_step("Generating report (HTML + PDF)...")
     ts_info_for_report = {
         "tsa_url": effective_tsa,
         "data_hash_sha256": manifest_hashes["sha256"],
@@ -451,6 +484,8 @@ def capture_cmd(
         timestamp_result=timestamp_result,
         artifact_hashes=artifact_hashes,
         legal_captures=legal_captures,
+        timestamp_trust_pem=timestamp_trust_pem,
+        timestamp_untrusted_pem=timestamp_untrusted_pem,
     )
 
     out_dir = pathlib.Path(output_dir)

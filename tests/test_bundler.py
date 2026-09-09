@@ -71,10 +71,8 @@ class TestAssemblePackage(unittest.TestCase):
         self.assertIn("manifest.sha256", self._names())
 
     def test_report_html_present(self):
-        self.assertIn("report/forensic_report.html", self._names())
-
-    def test_report_pdf_present(self):
-        self.assertIn("report/forensic_report.pdf", self._names())
+        self.assertIn("report/capture_report.html", self._names())
+        self.assertIn("report/capture_report.pdf", self._names())
 
     def test_warc_present(self):
         self.assertIn("capture/page.warc.gz", self._names())
@@ -187,6 +185,7 @@ class TestBuildVerifyScript(unittest.TestCase):
     def test_uses_explicit_trust_bundle(self):
         script = _build_verify_script({"tsa_url": ""})
         self.assertIn("tsa_trust.pem", script)
+        self.assertIn("tsa_untrusted.pem", script)
         self.assertNotIn("tsa_ca.pem", script)
         self.assertNotIn("grep -A 100", script)
 
@@ -212,6 +211,7 @@ class TestBuildVerifyScriptWindows(unittest.TestCase):
     def test_uses_explicit_trust_bundle(self):
         script = _build_verify_script_windows({"tsa_url": ""})
         self.assertIn("tsa_trust.pem", script)
+        self.assertIn("tsa_untrusted.pem", script)
         self.assertNotIn("tsa_ca.pem", script)
 
 

@@ -22,6 +22,7 @@ def build_manifest(
     artifact_hashes: dict[str, dict[str, str]],
     tsa_url: str,
     extra_operator_fields: dict[str, str] | None = None,
+    timestamp_trust_material: bool = False,
 ) -> dict[str, Any]:
     manifest: dict[str, Any] = {
         "schema_version": "1.0",
@@ -70,6 +71,7 @@ def build_manifest(
             "scope": "manifest.json canonical bytes",
             "external_signer_required": True,
         },
+        "timestamp_trust_material": timestamp_trust_material,
         "provenance": {
             "host_os": platform.platform(),
             "python_version": platform.python_version(),

@@ -5,8 +5,8 @@ import requests
 
 
 TOOL_UA = (
-    "Mozilla/5.0 (compatible; WeBF-ForensicCapture/1.0; "
-    "+https://github.com/webf-forensic)"
+    "Mozilla/5.0 (compatible; WeBF/1.0; "
+    "+https://github.com/webf-capture)"
 )
 
 

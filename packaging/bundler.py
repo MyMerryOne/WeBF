@@ -21,6 +21,8 @@ def assemble_package(
     timestamp_result: dict[str, Any],
     artifact_hashes: dict[str, dict[str, str]],
     legal_captures: list[dict] = (),
+    timestamp_trust_pem: bytes = b"",
+    timestamp_untrusted_pem: bytes = b"",
 ) -> bytes:
     buf = io.BytesIO()
 
@@ -28,8 +30,8 @@ def assemble_package(
         zf.writestr("manifest.json", manifest_bytes)
         zf.writestr("manifest.sha256", manifest_hashes["sha256"].encode())
 
-        zf.writestr("report/forensic_report.html", report_html)
-        zf.writestr("report/forensic_report.pdf", report_pdf)
+        zf.writestr("report/capture_report.html", report_html)
+        zf.writestr("report/capture_report.pdf", report_pdf)
 
         zf.writestr("capture/page.warc.gz", warc_bytes)
         if screenshot_full:
@@ -116,6 +118,10 @@ def assemble_package(
 
         verify_ps1 = _build_verify_script_windows(timestamp_result)
         zf.writestr("timestamp/verify.ps1", verify_ps1.encode())
+        if timestamp_trust_pem:
+            zf.writestr("timestamp/tsa_trust.pem", timestamp_trust_pem)
+        if timestamp_untrusted_pem:
+            zf.writestr("timestamp/tsa_untrusted.pem", timestamp_untrusted_pem)
 
         zf.writestr(
             "VERIFICATION.md",
@@ -141,10 +147,15 @@ echo "TSA: {tsa_url}"
 echo ""
 
 if [ -f "$SCRIPT_DIR/tsa_trust.pem" ]; then
+    untrusted_args=()
+    if [ -f "$SCRIPT_DIR/tsa_untrusted.pem" ]; then
+        untrusted_args=(-untrusted "$SCRIPT_DIR/tsa_untrusted.pem")
+    fi
     openssl ts -verify \\
         -queryfile "$SCRIPT_DIR/request.tsq" \\
         -in "$SCRIPT_DIR/response.tsr" \\
         -CAfile "$SCRIPT_DIR/tsa_trust.pem" \\
+        "${{untrusted_args[@]}}" \\
         && echo "RESULT: TSA trust-chain verification PASSED." \\
         || {{ echo "RESULT: TSA trust-chain verification FAILED."; exit 1; }}
 else
@@ -162,6 +173,7 @@ openssl ts -reply -in "$SCRIPT_DIR/response.tsr" -text 2>/dev/null | \\
 def _build_verify_script_windows(ts_result: dict[str, Any]) -> str:
     tsa_url = ts_result.get("tsa_url", "")
     return f"""# RFC 3161 timestamp verification (PowerShell / Windows)
+# Equivalent command: openssl ts -verify -queryfile request.tsq -in response.tsr
 # Requires: OpenSSL available in PATH (e.g. from Git for Windows)
 # Usage: pwsh verify.ps1
 
@@ -173,12 +185,17 @@ Write-Host ""
 $tsqPath = Join-Path $ScriptDir "request.tsq"
 $tsrPath = Join-Path $ScriptDir "response.tsr"
 $caPath  = Join-Path $ScriptDir "tsa_trust.pem"
+$untrustedPath = Join-Path $ScriptDir "tsa_untrusted.pem"
 
 if (-not (Test-Path $caPath)) {{
     Write-Host "RESULT: TSA trust-chain NOT VERIFIED (provide tsa_trust.pem)." -ForegroundColor Yellow
     Write-Host "The signer certificate embedded in the token is not a trust anchor."
 }} else {{
-    & openssl ts -verify -queryfile $tsqPath -in $tsrPath -CAfile $caPath
+    $verifyArgs = @("ts", "-verify", "-queryfile", $tsqPath, "-in", $tsrPath, "-CAfile", $caPath)
+    if (Test-Path $untrustedPath) {{
+        $verifyArgs += @("-untrusted", $untrustedPath)
+    }}
+    & openssl @verifyArgs
     if ($LASTEXITCODE -eq 0) {{
         Write-Host "RESULT: TSA trust-chain verification PASSED" -ForegroundColor Green
     }} else {{

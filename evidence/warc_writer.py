@@ -8,7 +8,7 @@ from typing import Any
 from warcio.archiveiterator import ArchiveIterator
 from warcio.warcwriter import WARCWriter
 
-TOOL_VERSION = "WeBF-ForensicCapture/1.0"
+TOOL_VERSION = "WeBF/1.0"
 
 
 def _utc_now_str() -> str:

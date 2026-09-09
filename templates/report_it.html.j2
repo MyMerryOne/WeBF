@@ -2,7 +2,7 @@
 
 {% set lang = "it" %}
 {% block doc_title %}Verbale di Acquisizione di Contenuto Web{% endblock %}
-{% block doc_subtitle %}WeBF-ForensicCapture v{{ manifest.tool.version }} · D.Lgs. 82/2005 (CAD) / eIDAS{% endblock %}
+{% block doc_subtitle %}WeBF v{{ manifest.tool.version }} · D.Lgs. 82/2005 (CAD) / eIDAS{% endblock %}
 
 {% block case_label %}Riferimento{% endblock %}
 {% block date_label %}Data (UTC){% endblock %}
@@ -47,6 +47,19 @@ completezza, provenienza, paternità del contenuto o qualificazione giuridica de
 
 {% block section_network %}3. Informazioni di Rete{% endblock %}
 {% block section_provenance %}4. Provenienza e Limitazioni{% endblock %}
+{% block lbl_host_os %}Sistema operativo host{% endblock %}
+{% block lbl_python %}Versione Python{% endblock %}
+{% block lbl_clock %}Orologio{% endblock %}
+{% block lbl_external_signature %}Firma esterna{% endblock %}
+{% block lbl_signature_scope %}ambito{% endblock %}
+{% block provenance_limitations %}
+  <ul class="legal-list">
+    <li>Screenshot, PDF e HTML renderizzato sono rappresentazioni derivate e non byte acquisiti direttamente dal filo HTTP.</li>
+    <li>I metadati di rete e i risultati WHOIS sono osservazioni al momento dell'acquisizione e possono essere incompleti.</li>
+    <li>Un hash o una marca temporale non dimostrano da soli paternità, veridicità del contenuto o ammissibilità giuridica.</li>
+    <li>La firma dell'operatore, l'autorità dell'incarico e la gestione della catena di custodia richiedono prove separate.</li>
+  </ul>
+{% endblock %}
 {% block lbl_hostname %}Hostname{% endblock %}
 {% block lbl_dns_a %}Record DNS A{% endblock %}
 {% block lbl_dns_aaaa %}Record DNS AAAA{% endblock %}
@@ -90,7 +103,7 @@ completezza, provenienza, paternità del contenuto o qualificazione giuridica de
     <p>
       Il sottoscritto <strong>{{ manifest.operator.name }}</strong>
       {% if manifest.operator.operator_role %}({{ manifest.operator.operator_role }}){% endif %}
-      dichiara di aver eseguito personalmente l'acquisizione forense della pagina web
+      dichiara di aver eseguito personalmente l'acquisizione del contenuto della pagina web
       identificata nella sezione 1 del presente verbale, in data
       <strong>{{ manifest.timing.capture_start_utc[:10] }}</strong> alle ore
       <strong>{{ manifest.timing.capture_start_utc[11:19] }} UTC</strong>,

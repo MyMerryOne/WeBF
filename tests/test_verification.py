@@ -23,7 +23,7 @@ class TestPackageInventory(unittest.TestCase):
             ["manifest.json", "manifest.sha256", "capture/page.warc.gz", "extra.txt"],
         )
 
-        self.assertIn("report/forensic_report.html", missing)
+        self.assertIn("report/capture_report.html", missing)
         self.assertIn("extra.txt", unexpected)
 
     def test_accepts_generated_legal_index(self):
@@ -37,8 +37,8 @@ class TestPackageInventory(unittest.TestCase):
                 "manifest.sha256",
                 "capture/legal/privacy/page.html",
                 "capture/legal/legal_index.json",
-                "report/forensic_report.html",
-                "report/forensic_report.pdf",
+                "report/capture_report.html",
+                "report/capture_report.pdf",
                 "network/dns.json",
                 "network/whois.txt",
                 "network/tls_certificate.json",
@@ -77,8 +77,8 @@ class TestVerifyCommand(unittest.TestCase):
             "manifest.json": manifest_bytes,
             "manifest.sha256": hashlib.sha256(manifest_bytes).hexdigest().encode(),
             "capture/page.warc.gz": artifact,
-            "report/forensic_report.html": b"report",
-            "report/forensic_report.pdf": b"pdf",
+            "report/capture_report.html": b"report",
+            "report/capture_report.pdf": b"pdf",
             "network/dns.json": b"{}",
             "network/whois.txt": b"",
             "network/tls_certificate.json": b"{}",

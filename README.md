@@ -91,6 +91,13 @@ python webf.py capture https://example.com `
   --output-dir "C:\Evidence\2026\Case001"
 ```
 
+For the `it` profile, the capture requires the explicit TSA trust materials
+`timestamp/tsa_trust.pem` and `timestamp/tsa_untrusted.pem`. The capture verifies
+the RFC 3161 chain before creating the package and includes both certificates in
+the package inventory. Their presence and cryptographic validity do not, by
+themselves, establish current AgID qualification; that status must be documented
+against the applicable Trusted List at review time.
+
 ### Verify an evidence package
 
 ```powershell
@@ -142,6 +149,8 @@ webf_YYYYMMDD_HHMMSS_<domain>.zip
     ├── request.tsq            ← RFC 3161 TimeStampRequest (DER)
     ├── response.tsr           ← RFC 3161 TimeStampResponse — signed token
     ├── timestamp_info.json    ← Human-readable: TSA, time, serial number
+    ├── tsa_trust.pem          ← Explicit trusted root used for OpenSSL validation
+    ├── tsa_untrusted.pem      ← Explicit intermediate chain certificate
     ├── verify.sh              ← OpenSSL verification script (Linux/macOS)
     └── verify.ps1             ← OpenSSL verification script (Windows/PowerShell)
 ```
@@ -151,6 +160,9 @@ It must be obtained from the TSA's official certificate documentation or the
 applicable AgID/EU Trusted List, with its source, version, retrieval time, and
 validation scope recorded in the case file. The signer certificate embedded in a
 timestamp token is evidence about the signer, but is not by itself a trust anchor.
+If the trust anchor does not directly chain to the signer, place the official
+intermediate certificate in `timestamp/tsa_untrusted.pem`; it is supplied to
+OpenSSL with `-untrusted` and is not treated as a root of trust.
 
 ### Independent timestamp verification
 
