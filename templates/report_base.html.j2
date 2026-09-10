@@ -189,6 +189,27 @@
     {% endblock %}
   </div>
 
+  <div class="section" style="border:1px solid #ffc107; padding:10px;">
+  <h3>Capture Status</h3>
+  <p>
+    {% if manifest.capture_status.overall == "complete" %}
+      <span class="badge badge-ok">COMPLETE</span>
+    {% else %}
+      <span class="badge badge-warn">{{ manifest.capture_status.overall | upper }}</span>
+    {% endif %}
+  </p>
+  <table>
+    {% for name, status in manifest.capture_status.stages.items() | sort %}
+    <tr><th>{{ name }}</th><td>{{ status }}</td></tr>
+    {% endfor %}
+  </table>
+  {% if manifest.capture_status.warnings %}
+  <ul class="legal-list">
+    {% for warning in manifest.capture_status.warnings %}<li>{{ warning }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  </div>
+
   <!-- 1. Capture details -->
   <div class="section">
   <h3>{% block section_capture %}1. Capture Details{% endblock %}</h3>

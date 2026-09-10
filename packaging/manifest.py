@@ -60,7 +60,14 @@ def build_manifest(
     tsa_url: str,
     extra_operator_fields: dict[str, str] | None = None,
     timestamp_trust_material: bool = False,
+    capture_status: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    status = capture_status or {
+        "overall": "complete",
+        "stages": {},
+        "warnings": [],
+        "omitted_artifacts": [],
+    }
     manifest: dict[str, Any] = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "tool": {
@@ -92,6 +99,7 @@ def build_manifest(
         },
         "jurisdiction": jurisdiction_id,
         "tsa_url": tsa_url,
+        "capture_status": status,
         "network": {
             "hostname": network_result.get("hostname", ""),
             "dns": network_result.get("dns", {}),

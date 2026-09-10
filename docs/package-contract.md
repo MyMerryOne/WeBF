@@ -41,7 +41,7 @@ The following members are conditional:
 - `capture/legal/` and `capture/legal/legal_index.json` are present only when legal content is discovered and captured. Use `--no-legal` to skip discovery.
 - `timestamp/tsa_trust.pem` and `timestamp/tsa_untrusted.pem` are included when trust material is supplied. Italian captures require both files before capture begins.
 
-The manifest `package_members` list is the authoritative inventory for schema `1.1`. A verifier must reject missing declared members, unexpected members, duplicate names, unsafe paths, malformed JSON, invalid hash lengths, and missing required primary evidence.
+The manifest `package_members` list is the authoritative inventory for schema `1.1`. `capture_status` records the overall state (`complete` or `partial`), per-stage states, warnings, and omitted artifacts. A verifier must reject missing declared members, unexpected members, duplicate names, unsafe paths, malformed JSON, invalid hash lengths, and missing required primary evidence.
 
 ## Hash relationships
 

@@ -261,6 +261,9 @@ def capture_cmd(
     click.echo("")
 
     start_time = _utc_now()
+    stage_status: dict[str, str] = {}
+    stage_warnings: list[str] = []
+    omitted_artifacts: list[str] = []
 
     try:
         validate_public_url(url)
@@ -271,8 +274,11 @@ def capture_cmd(
     _echo_step("Resolving DNS, WHOIS, TLS certificate...")
     try:
         network_result = capture_network(url)
+        stage_status["network"] = "complete"
         _echo_ok("Network information captured.")
     except Exception as exc:
+        stage_status["network"] = "partial"
+        stage_warnings.append(f"network: {exc}")
         _echo_warn(f"Network capture partial: {exc}")
         network_result = {"hostname": "", "scheme": "", "dns": {}, "tls": None, "whois": {}}
 
@@ -280,8 +286,10 @@ def capture_cmd(
     _echo_step("Fetching raw HTTP response...")
     try:
         http_result = capture_http(url)
+        stage_status["http"] = "complete"
         _echo_ok(f"HTTP {http_result['status_code']} received ({http_result['actual_body_bytes']:,} bytes).")
     except Exception as exc:
+        stage_status["http"] = "failed"
         _echo_err(f"HTTP capture failed: {exc}")
         sys.exit(1)
 
@@ -291,13 +299,27 @@ def capture_cmd(
         _echo_step("Launching headless browser (screenshot, PDF, rendered HTML)...")
         try:
             browser_result = capture_browser(url)
+            stage_status["browser"] = "complete"
             _echo_ok(f"Browser capture complete. Title: {browser_result.get('page_title', '')!r}")
         except Exception as exc:
+            stage_status["browser"] = "failed"
+            stage_warnings.append(f"browser: {exc}")
+            omitted_artifacts.extend([
+                "capture/screenshot_full.png", "capture/screenshot_viewport.png",
+                "capture/page.html", "capture/page.pdf",
+            ])
             _echo_warn(f"Browser capture failed: {exc}. Continuing without browser artifacts.")
+    else:
+        stage_status["browser"] = "skipped"
+        omitted_artifacts.extend([
+            "capture/screenshot_full.png", "capture/screenshot_viewport.png",
+            "capture/page.html", "capture/page.pdf",
+        ])
 
     # 3b. Legal sub-pages
     legal_captures: list[dict] = []
     if not no_legal:
+        stage_status["legal_discovery"] = "complete"
         _echo_step("Scanning for legal sub-pages (Privacy Policy, Cookie Policy, T&C)...")
         html_source = browser_result.get("rendered_html") or http_result.get("raw_body", b"")
         links = find_legal_links(html_source, url, max_links=max_legal_pages)
@@ -330,6 +352,8 @@ def capture_cmd(
                     _echo_ok(f"  {link['label']} — {link['url']}")
                     fetched_count += 1
                 except Exception as exc:
+                    stage_status["legal_discovery"] = "partial"
+                    stage_warnings.append(f"legal fetch {link['url']}: {exc}")
                     _echo_warn(f"  {link['label']} failed: {exc}")
         if legal_captures:
             parts = []
@@ -361,12 +385,21 @@ def capture_cmd(
             if captured_count:
                 _echo_ok(f"Browser modal capture: {captured_count} modal(s) screenshotted.")
         except Exception as exc:
+            stage_status["legal_modal"] = "failed"
+            stage_warnings.append(f"legal modal: {exc}")
             _echo_warn(f"Browser modal capture skipped: {exc}")
+        else:
+            stage_status["legal_modal"] = "complete"
+    elif no_legal:
+        stage_status["legal_discovery"] = "skipped"
+    else:
+        stage_status["legal_modal"] = "unavailable"
 
     # 4. WARC
     _echo_step("Building ISO 28500 WARC archive...")
     try:
         warc_bytes = build_warc(url, http_result, browser_result, operator, case_ref, legal_captures)
+        stage_status["warc"] = "complete"
         _echo_ok(f"WARC archive built ({len(warc_bytes):,} bytes).")
     except Exception as exc:
         _echo_err(f"WARC build failed; capture aborted: {exc}")
@@ -431,6 +464,12 @@ def capture_cmd(
         tsa_url=effective_tsa,
         extra_operator_fields=extra_op or None,
         timestamp_trust_material=bool(timestamp_trust_pem and timestamp_untrusted_pem),
+        capture_status={
+            "overall": "partial" if stage_warnings or omitted_artifacts else "complete",
+            "stages": stage_status,
+            "warnings": stage_warnings,
+            "omitted_artifacts": sorted(set(omitted_artifacts)),
+        },
     )
     manifest_bytes = serialize_manifest(manifest)
     manifest_hashes = hash_bytes(manifest_bytes)
