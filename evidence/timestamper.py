@@ -8,21 +8,42 @@ import hashlib
 import subprocess
 import tempfile
 from typing import Any
+from urllib.parse import urljoin
 
 import requests
 from pyasn1.codec.der import decoder as der_decoder, encoder as der_encoder
 from pyasn1_modules import rfc3161, rfc5652
 
+from capture.url_policy import validate_public_url
 from evidence.der_helpers import build_timestamp_request
 
 
-def send_timestamp_request(tsq_bytes: bytes, tsa_url: str, timeout: int = 30) -> bytes:
-    resp = requests.post(
-        tsa_url,
-        data=tsq_bytes,
-        headers={"Content-Type": "application/timestamp-query"},
-        timeout=timeout,
-    )
+def send_timestamp_request(
+    tsq_bytes: bytes,
+    tsa_url: str,
+    timeout: int = 30,
+    max_redirects: int = 3,
+) -> bytes:
+    """Post a timestamp query only to validated TSA destinations."""
+    current_url = tsa_url
+    for redirect_count in range(max_redirects + 1):
+        validate_public_url(current_url)
+        resp = requests.post(
+            current_url,
+            data=tsq_bytes,
+            headers={"Content-Type": "application/timestamp-query"},
+            timeout=timeout,
+            allow_redirects=False,
+        )
+        if resp.is_redirect:
+            location = resp.headers.get("Location")
+            if not location:
+                raise RuntimeError("TSA returned a redirect without a Location header")
+            if redirect_count >= max_redirects:
+                raise RuntimeError("TSA redirect limit exceeded")
+            current_url = urljoin(current_url, location)
+            continue
+        break
     if resp.status_code != 200:
         raise RuntimeError(
             f"TSA returned HTTP {resp.status_code}: {resp.text[:200]}"

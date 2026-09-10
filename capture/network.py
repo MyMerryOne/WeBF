@@ -10,6 +10,7 @@ import whois
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
+from capture.url_policy import validate_public_url
 
 
 def resolve_dns(hostname: str) -> dict[str, Any]:
@@ -117,6 +118,7 @@ def fetch_whois(hostname: str) -> dict[str, Any]:
 
 
 def capture_network(url: str) -> dict[str, Any]:
+    validate_public_url(url)
     parsed = urlparse(url)
     hostname = parsed.hostname or ""
     port = parsed.port or (443 if parsed.scheme == "https" else 80)

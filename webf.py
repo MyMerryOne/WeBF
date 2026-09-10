@@ -208,6 +208,7 @@ def capture_cmd(
     from jurisdiction import get_profile
     from capture.http_raw import capture_http, build_raw_http_bytes
     from capture.network import capture_network
+    from capture.url_policy import validate_public_url
     from capture.browser import capture_browser
     from capture.legal_links import find_legal_links, extract_embedded_section
     from capture.browser import capture_legal_modals
@@ -253,6 +254,11 @@ def capture_cmd(
     click.echo("")
 
     start_time = _utc_now()
+
+    try:
+        validate_public_url(url)
+    except ValueError as exc:
+        raise click.ClickException(f"Capture target rejected: {exc}") from exc
 
     # 1. Network info
     _echo_step("Resolving DNS, WHOIS, TLS certificate...")
@@ -649,6 +655,10 @@ def verify_cmd(package_path: str) -> None:
             artifact_hashes = {}
         click.echo(f"\n  Checking {len(artifact_hashes)} artifact hashes:")
         for name, expected in sorted(artifact_hashes.items()):
+            if not isinstance(expected, dict):
+                _echo_err(f"  {name}: artifact hash entry is not an object")
+                all_ok = False
+                continue
             if name not in names:
                 _echo_warn(f"  {name}: NOT FOUND in package")
                 all_ok = False

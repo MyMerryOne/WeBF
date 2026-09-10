@@ -1,5 +1,6 @@
 """Playwright-based browser capture: screenshot, PDF, rendered HTML, legal modals."""
 from typing import Any
+from urllib.parse import urlparse
 
 from capture.url_policy import validate_public_url
 
@@ -29,8 +30,9 @@ _COOKIE_REJECT_TEXTS = [
 
 
 def _guard_navigation(route, request) -> None:
-    """Abort browser document navigations outside the public-web scope."""
-    if request.is_navigation_request():
+    """Abort browser HTTP(S) requests outside the public-web scope."""
+    scheme = urlparse(request.url).scheme.lower()
+    if scheme in {"http", "https"}:
         try:
             validate_public_url(request.url)
         except ValueError:
@@ -43,6 +45,10 @@ def _wait_and_capture(page, url: str) -> dict[str, Any]:
     validate_public_url(url)
     page.route("**/*", _guard_navigation)
     page.set_extra_http_headers({"User-Agent": TOOL_UA})
+    console_errors: list[str] = []
+    page_errors: list[str] = []
+    page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
+    page.on("pageerror", lambda error: page_errors.append(str(error)))
     try:
         response = page.goto(url, wait_until="networkidle", timeout=60_000)
     finally:
@@ -71,9 +77,6 @@ def _wait_and_capture(page, url: str) -> dict[str, Any]:
 
     page_title: str = page.title()
 
-    console_errors: list[str] = []
-    page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
-
     return {
         "final_url": final_url,
         "http_status": status_code,
@@ -82,6 +85,8 @@ def _wait_and_capture(page, url: str) -> dict[str, Any]:
         "screenshot_full_png": screenshot_full,
         "screenshot_viewport_png": screenshot_vp,
         "pdf_bytes": pdf_bytes,
+        "console_errors": console_errors,
+        "page_errors": page_errors,
     }
 
 

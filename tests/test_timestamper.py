@@ -26,6 +26,7 @@ class TestSendTimestampRequest(unittest.TestCase):
     ) -> MagicMock:
         resp = MagicMock()
         resp.status_code = status_code
+        resp.is_redirect = False
         resp.content = content
         resp.text = content.decode("latin-1", errors="replace")
         resp.headers = {"Content-Type": content_type}
@@ -34,16 +35,19 @@ class TestSendTimestampRequest(unittest.TestCase):
     def test_returns_tsr_bytes_on_success(self):
         from evidence.timestamper import send_timestamp_request
         fake_tsr = b"\x30\x82\x01\xff" + b"\x00" * 20
-        with patch("evidence.timestamper.requests.post") as mock_post:
-            mock_post.return_value = self._make_mock_response(content=fake_tsr)
-            result = send_timestamp_request(b"\x30\x00", "https://freetsa.org/tsr")
+        with patch("evidence.timestamper.validate_public_url") as validate:
+            with patch("evidence.timestamper.requests.post") as mock_post:
+                mock_post.return_value = self._make_mock_response(content=fake_tsr)
+                result = send_timestamp_request(b"\x30\x00", "https://freetsa.org/tsr")
+        validate.assert_called_once_with("https://freetsa.org/tsr")
         self.assertEqual(result, fake_tsr)
 
     def test_sends_correct_content_type_header(self):
         from evidence.timestamper import send_timestamp_request
-        with patch("evidence.timestamper.requests.post") as mock_post:
-            mock_post.return_value = self._make_mock_response()
-            send_timestamp_request(b"\x30\x00", "https://freetsa.org/tsr")
+        with patch("evidence.timestamper.validate_public_url"):
+            with patch("evidence.timestamper.requests.post") as mock_post:
+                mock_post.return_value = self._make_mock_response()
+                send_timestamp_request(b"\x30\x00", "https://freetsa.org/tsr")
         _, kwargs = mock_post.call_args
         headers = kwargs.get("headers", {})
         self.assertEqual(headers.get("Content-Type"), "application/timestamp-query")
@@ -51,55 +55,82 @@ class TestSendTimestampRequest(unittest.TestCase):
     def test_posts_to_correct_url(self):
         from evidence.timestamper import send_timestamp_request
         tsa_url = "https://freetsa.org/tsr"
-        with patch("evidence.timestamper.requests.post") as mock_post:
-            mock_post.return_value = self._make_mock_response()
-            send_timestamp_request(b"\x30\x00", tsa_url)
+        with patch("evidence.timestamper.validate_public_url"):
+            with patch("evidence.timestamper.requests.post") as mock_post:
+                mock_post.return_value = self._make_mock_response()
+                send_timestamp_request(b"\x30\x00", tsa_url)
         args, _ = mock_post.call_args
         self.assertEqual(args[0], tsa_url)
 
     def test_passes_tsq_as_data(self):
         from evidence.timestamper import send_timestamp_request
         tsq = b"\x30\x10" + b"\x01" * 16
-        with patch("evidence.timestamper.requests.post") as mock_post:
-            mock_post.return_value = self._make_mock_response()
-            send_timestamp_request(tsq, "https://freetsa.org/tsr")
+        with patch("evidence.timestamper.validate_public_url"):
+            with patch("evidence.timestamper.requests.post") as mock_post:
+                mock_post.return_value = self._make_mock_response()
+                send_timestamp_request(tsq, "https://freetsa.org/tsr")
         _, kwargs = mock_post.call_args
         self.assertEqual(kwargs.get("data"), tsq)
 
     def test_raises_on_non_200(self):
         from evidence.timestamper import send_timestamp_request
-        with patch("evidence.timestamper.requests.post") as mock_post:
-            mock_post.return_value = self._make_mock_response(status_code=400)
-            with self.assertRaises(RuntimeError) as ctx:
-                send_timestamp_request(b"\x30\x00", "https://freetsa.org/tsr")
+        with patch("evidence.timestamper.validate_public_url"):
+            with patch("evidence.timestamper.requests.post") as mock_post:
+                mock_post.return_value = self._make_mock_response(status_code=400)
+                with self.assertRaises(RuntimeError) as ctx:
+                    send_timestamp_request(b"\x30\x00", "https://freetsa.org/tsr")
         self.assertIn("400", str(ctx.exception))
 
     def test_raises_on_wrong_content_type(self):
         from evidence.timestamper import send_timestamp_request
-        with patch("evidence.timestamper.requests.post") as mock_post:
-            mock_post.return_value = self._make_mock_response(
-                content_type="text/html"
-            )
-            with self.assertRaises(RuntimeError) as ctx:
-                send_timestamp_request(b"\x30\x00", "https://freetsa.org/tsr")
+        with patch("evidence.timestamper.validate_public_url"):
+            with patch("evidence.timestamper.requests.post") as mock_post:
+                mock_post.return_value = self._make_mock_response(
+                    content_type="text/html"
+                )
+                with self.assertRaises(RuntimeError) as ctx:
+                    send_timestamp_request(b"\x30\x00", "https://freetsa.org/tsr")
         self.assertIn("Content-Type", str(ctx.exception))
 
     def test_accepts_octet_stream_content_type(self):
         from evidence.timestamper import send_timestamp_request
-        with patch("evidence.timestamper.requests.post") as mock_post:
-            mock_post.return_value = self._make_mock_response(
-                content_type="application/octet-stream"
-            )
-            result = send_timestamp_request(b"\x30\x00", "https://freetsa.org/tsr")
+        with patch("evidence.timestamper.validate_public_url"):
+            with patch("evidence.timestamper.requests.post") as mock_post:
+                mock_post.return_value = self._make_mock_response(
+                    content_type="application/octet-stream"
+                )
+                result = send_timestamp_request(b"\x30\x00", "https://freetsa.org/tsr")
         self.assertIsInstance(result, bytes)
 
     def test_timeout_passed_to_requests(self):
         from evidence.timestamper import send_timestamp_request
-        with patch("evidence.timestamper.requests.post") as mock_post:
-            mock_post.return_value = self._make_mock_response()
-            send_timestamp_request(b"\x30\x00", "https://freetsa.org/tsr", timeout=15)
+        with patch("evidence.timestamper.validate_public_url"):
+            with patch("evidence.timestamper.requests.post") as mock_post:
+                mock_post.return_value = self._make_mock_response()
+                send_timestamp_request(b"\x30\x00", "https://freetsa.org/tsr", timeout=15)
         _, kwargs = mock_post.call_args
         self.assertEqual(kwargs.get("timeout"), 15)
+
+    def test_rejects_redirect_to_private_destination(self):
+        from evidence.timestamper import send_timestamp_request
+        redirect = self._make_mock_response(status_code=302)
+        redirect.is_redirect = True
+        redirect.headers["Location"] = "https://private.example/tsr"
+        with patch("evidence.timestamper.validate_public_url") as validate:
+            validate.side_effect = [None, ValueError("non-public capture address")]
+            with patch("evidence.timestamper.requests.post", return_value=redirect):
+                with self.assertRaisesRegex(ValueError, "non-public"):
+                    send_timestamp_request(b"\x30\x00", "https://freetsa.org/tsr")
+
+    def test_rejects_redirect_loop(self):
+        from evidence.timestamper import send_timestamp_request
+        redirect = self._make_mock_response(status_code=302)
+        redirect.is_redirect = True
+        redirect.headers["Location"] = "https://freetsa.org/tsr"
+        with patch("evidence.timestamper.validate_public_url"):
+            with patch("evidence.timestamper.requests.post", return_value=redirect):
+                with self.assertRaisesRegex(RuntimeError, "redirect limit"):
+                    send_timestamp_request(b"\x30\x00", "https://freetsa.org/tsr", max_redirects=2)
 
 
 class TestRequestTimestamp(unittest.TestCase):
