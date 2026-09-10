@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from capture.browser import _guard_navigation
+from capture.browser import _guard_navigation, _isolated_egress_proxy
 
 
 class TestBrowserRequestPolicy(unittest.TestCase):
@@ -22,6 +22,19 @@ class TestBrowserRequestPolicy(unittest.TestCase):
 
         validate.assert_called_once_with(request.url)
         route.continue_.assert_called_once_with()
+
+    def test_required_isolated_egress_fails_without_proxy(self):
+        with patch.dict("os.environ", {"WEBF_REQUIRE_ISOLATED_EGRESS": "1"}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "WEBF_BROWSER_PROXY"):
+                _isolated_egress_proxy()
+
+    def test_isolated_egress_proxy_is_explicit(self):
+        with patch.dict(
+            "os.environ",
+            {"WEBF_REQUIRE_ISOLATED_EGRESS": "1", "WEBF_BROWSER_PROXY": "http://proxy:8080"},
+            clear=True,
+        ):
+            self.assertEqual(_isolated_egress_proxy(), {"server": "http://proxy:8080"})
 
     def test_allows_non_network_browser_scheme(self):
         route = Mock()

@@ -23,6 +23,7 @@ Record the release version, source revision, reviewer, validation environment, a
 ## Live and jurisdiction validation
 
 - [ ] Live browser/network/TSA validation documented separately when required.
+- [ ] Browser isolated-egress proxy configuration and private-peer rejection validated when required.
 - [ ] TSA certificate-chain, revocation, and current Trusted List/service-status checks recorded separately where claimed.
 
 ## Documentation and approval

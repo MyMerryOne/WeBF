@@ -20,6 +20,13 @@ Capture targets and every HTTP redirect must use HTTP(S), contain no credentials
 and resolve only to public addresses. TLS certificate verification failures stop
 the capture; unverifiable responses must not be packaged as normal evidence.
 
+Browser subresources are policy-checked before requests are continued. For
+connection-time enforcement against DNS rebinding, run captures through an
+isolated egress proxy that rejects private and loopback peers, configure its
+address with `WEBF_BROWSER_PROXY`, and set `WEBF_REQUIRE_ISOLATED_EGRESS=1`.
+The application cannot establish the proxy's firewall policy itself; controlled
+deployment validation is required before treating this boundary as enforced.
+
 Generated verification scripts must treat recorded TSA URLs as data rather than
 executable shell or PowerShell source.
 

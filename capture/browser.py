@@ -1,4 +1,5 @@
 """Playwright-based browser capture: screenshot, PDF, rendered HTML, legal modals."""
+import os
 from typing import Any
 from urllib.parse import urlparse
 
@@ -9,6 +10,17 @@ TOOL_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 WeBF/1.0"
 )
+
+
+def _isolated_egress_proxy() -> dict[str, str] | None:
+    """Return the configured egress proxy, failing closed when required."""
+    proxy = os.environ.get("WEBF_BROWSER_PROXY", "").strip()
+    required = os.environ.get("WEBF_REQUIRE_ISOLATED_EGRESS", "") == "1"
+    if required and not proxy:
+        raise RuntimeError(
+            "isolated browser egress is required; set WEBF_BROWSER_PROXY"
+        )
+    return {"server": proxy} if proxy else None
 
 # Selectors tried in order to locate a visible modal after clicking a legal link
 _MODAL_SELECTORS = [
@@ -358,7 +370,11 @@ def capture_legal_modals(url: str, legal_links: list[dict]) -> dict[str, dict[st
 
     results: dict[str, dict[str, Any]] = {}
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
+        launch_options: dict[str, Any] = {"headless": True}
+        proxy = _isolated_egress_proxy()
+        if proxy:
+            launch_options["proxy"] = proxy
+        browser = pw.chromium.launch(**launch_options)
         context = browser.new_context(
             viewport={"width": 1280, "height": 900},
             user_agent=TOOL_UA,
@@ -388,7 +404,11 @@ def capture_legal_modals(url: str, legal_links: list[dict]) -> dict[str, dict[st
 def capture_browser(url: str) -> dict[str, Any]:
     from playwright.sync_api import sync_playwright
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
+        launch_options: dict[str, Any] = {"headless": True}
+        proxy = _isolated_egress_proxy()
+        if proxy:
+            launch_options["proxy"] = proxy
+        browser = pw.chromium.launch(**launch_options)
         context = browser.new_context(
             viewport={"width": 1280, "height": 900},
             user_agent=TOOL_UA,
