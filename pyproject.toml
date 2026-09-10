@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "webf"
@@ -22,6 +22,12 @@ dependencies = [
 
 [project.scripts]
 webf = "webf:cli"
+
+[tool.setuptools]
+py-modules = ["webf"]
+
+[tool.setuptools.packages.find]
+include = ["capture*", "evidence*", "jurisdiction*", "packaging*"]
 
 [project.optional-dependencies]
 dev = [

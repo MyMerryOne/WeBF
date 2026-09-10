@@ -17,8 +17,8 @@ typecheck:
 	$(PYTHON) -m mypy capture evidence jurisdiction packaging webf.py
 
 build:
-	@$(PYTHON) -c 'import build' >/dev/null 2>&1 || { echo "build is not installed; install the dev extra before release." >&2; exit 1; }
-	$(PYTHON) -m build
+	@cd /tmp && $(PYTHON) -c 'import build' >/dev/null 2>&1 || { echo "build is not installed; install the dev extra before release." >&2; exit 1; }
+	cd /tmp && $(PYTHON) -m build $(CURDIR)
 
 package-audit:
 	@set -eu; \
