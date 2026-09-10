@@ -30,6 +30,10 @@ deployment validation is required before treating this boundary as enforced.
 Generated verification scripts must treat recorded TSA URLs as data rather than
 executable shell or PowerShell source.
 
+External signatures must be produced by a controlled signer. WeBF only verifies
+detached signatures against supplied trust material and must never receive or
+store private signing keys.
+
 ## Package and trust-material handling
 
 Treat `timestamp/tsa_trust.pem` and `timestamp/tsa_untrusted.pem` as case-sensitive trust configuration. Record their source, retrieval time, version or list reference, hashes, and validation scope with the case record. A token signer certificate, provider name, endpoint URL, or successful OpenSSL chain check does not by itself establish current qualified-service status.

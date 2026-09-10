@@ -12,6 +12,7 @@ Record the release version, source revision, reviewer, validation environment, a
 - [ ] Source and wheel distributions built and inspected.
 - [ ] CLI version and entry point checks pass.
 - [ ] Package inventory and independent verification tested.
+- [ ] Any external CMS signature was verified with explicit trust material and the result retained separately.
 
 ## CI security and release evidence
 

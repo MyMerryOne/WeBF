@@ -71,6 +71,15 @@ Independent verification should:
 6. Check timestamp material and RFC 3161 imprint/nonce relationships.
 7. Check the package-index timestamp binding against the exact `package_hashes.json` bytes.
 
+## External signature adapter
+
+`evidence.signing.verify_detached_signature` verifies an externally produced
+DER-encoded detached CMS signature over supplied package bytes using explicit
+trust and optional intermediate certificates. WeBF does not generate or store
+private signing keys. A verified signature is a cryptographic result only; signer
+identity, authorization, qualified status, and legal effect require separate
+case records and jurisdiction-specific validation.
+
 Any failed required check produces a non-zero verification result. A valid hash proves only that the checked bytes match the recorded digest. It does not prove that the content is true, complete, authored by the operator, lawfully collected, or legally admissible.
 
 ## Historical packages
