@@ -1,6 +1,8 @@
 """Playwright-based browser capture: screenshot, PDF, rendered HTML, legal modals."""
 from typing import Any
 
+from capture.url_policy import validate_public_url
+
 
 TOOL_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -26,9 +28,26 @@ _COOKIE_REJECT_TEXTS = [
 ]
 
 
+def _guard_navigation(route, request) -> None:
+    """Abort browser document navigations outside the public-web scope."""
+    if request.is_navigation_request():
+        try:
+            validate_public_url(request.url)
+        except ValueError:
+            route.abort(error_code="blockedbyclient")
+            return
+    route.continue_()
+
+
 def _wait_and_capture(page, url: str) -> dict[str, Any]:
+    validate_public_url(url)
+    page.route("**/*", _guard_navigation)
     page.set_extra_http_headers({"User-Agent": TOOL_UA})
-    response = page.goto(url, wait_until="networkidle", timeout=60_000)
+    try:
+        response = page.goto(url, wait_until="networkidle", timeout=60_000)
+    finally:
+        page.unroute("**/*", _guard_navigation)
+    validate_public_url(page.url)
     _dismiss_translation_prompt(page)
     _dismiss_cookie_banner(page)
     _dismiss_logged_out_prompt(page)
@@ -239,6 +258,8 @@ def _pdf_modal_on_fresh_page(context, url: str, link: dict) -> bytes:
 
     pdf_page = context.new_page()
     try:
+        validate_public_url(url)
+        pdf_page.route("**/*", _guard_navigation)
         pdf_page.goto(url, wait_until="networkidle", timeout=60_000)
         _dismiss_cookie_banner(pdf_page)
 
@@ -261,6 +282,7 @@ def _pdf_modal_on_fresh_page(context, url: str, link: dict) -> bytes:
             margin={"top": "15mm", "bottom": "15mm", "left": "15mm", "right": "15mm"},
         )
     finally:
+        pdf_page.unroute("**/*", _guard_navigation)
         pdf_page.close()
 
 
@@ -339,6 +361,8 @@ def capture_legal_modals(url: str, legal_links: list[dict]) -> dict[str, dict[st
         )
         page = context.new_page()
         try:
+            validate_public_url(url)
+            page.route("**/*", _guard_navigation)
             page.goto(url, wait_until="networkidle", timeout=60_000)
             _dismiss_cookie_banner(page)
 
@@ -349,6 +373,7 @@ def capture_legal_modals(url: str, legal_links: list[dict]) -> dict[str, dict[st
                 except Exception as exc:
                     results[slug] = {"error": str(exc)}
         finally:
+            page.unroute("**/*", _guard_navigation)
             context.close()
             browser.close()
 

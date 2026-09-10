@@ -16,6 +16,13 @@ Report suspected vulnerabilities privately to the maintainer with the affected v
 
 Security-sensitive areas include URL handling, browser rendering, archive creation and extraction, path handling, timestamp verification, generated scripts, logging, and report generation.
 
+Capture targets and every HTTP redirect must use HTTP(S), contain no credentials,
+and resolve only to public addresses. TLS certificate verification failures stop
+the capture; unverifiable responses must not be packaged as normal evidence.
+
+Generated verification scripts must treat recorded TSA URLs as data rather than
+executable shell or PowerShell source.
+
 ## Package and trust-material handling
 
 Treat `timestamp/tsa_trust.pem` and `timestamp/tsa_untrusted.pem` as case-sensitive trust configuration. Record their source, retrieval time, version or list reference, hashes, and validation scope with the case record. A token signer certificate, provider name, endpoint URL, or successful OpenSSL chain check does not by itself establish current qualified-service status.

@@ -2,7 +2,9 @@
 import io
 import hashlib
 import json
+import shlex
 import zipfile
+from collections.abc import Sequence
 from typing import Any
 
 
@@ -20,7 +22,7 @@ def assemble_package(
     network_result: dict[str, Any],
     timestamp_result: dict[str, Any],
     artifact_hashes: dict[str, dict[str, str]],
-    legal_captures: list[dict] = (),
+    legal_captures: Sequence[dict[str, Any]] = (),
     timestamp_trust_pem: bytes = b"",
     timestamp_untrusted_pem: bytes = b"",
 ) -> bytes:
@@ -139,6 +141,7 @@ def assemble_package(
 
 def _build_verify_script(ts_result: dict[str, Any]) -> str:
     tsa_url = ts_result.get("tsa_url", "")
+    shell_tsa_url = shlex.quote(str(tsa_url))
     return f"""#!/usr/bin/env bash
 # RFC 3161 timestamp verification
 # Requires: OpenSSL >= 1.1.0
@@ -148,7 +151,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
 
 echo "=== Verifying RFC 3161 timestamp token ==="
-echo "TSA: {tsa_url}"
+printf 'TSA: %s\\n' {shell_tsa_url}
 echo ""
 
 if [ -f "$SCRIPT_DIR/tsa_trust.pem" ]; then
@@ -176,7 +179,8 @@ openssl ts -reply -in "$SCRIPT_DIR/response.tsr" -text 2>/dev/null | \\
 
 
 def _build_verify_script_windows(ts_result: dict[str, Any]) -> str:
-    tsa_url = ts_result.get("tsa_url", "")
+    tsa_url = str(ts_result.get("tsa_url", ""))
+    powershell_tsa_url = tsa_url.replace("'", "''")
     return f"""# RFC 3161 timestamp verification (PowerShell / Windows)
 # Equivalent command: openssl ts -verify -queryfile request.tsq -in response.tsr
 # Requires: OpenSSL available in PATH (e.g. from Git for Windows)
@@ -184,7 +188,7 @@ def _build_verify_script_windows(ts_result: dict[str, Any]) -> str:
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Write-Host "=== Verifying RFC 3161 timestamp token ==="
-Write-Host "TSA: {tsa_url}"
+Write-Host ('TSA: ' + '{powershell_tsa_url}')
 Write-Host ""
 
 $tsqPath = Join-Path $ScriptDir "request.tsq"

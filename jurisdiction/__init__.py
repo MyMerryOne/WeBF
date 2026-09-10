@@ -1,15 +1,17 @@
+from typing import Any
+
 from jurisdiction.eu import PROFILE as EU_PROFILE
 from jurisdiction.it import PROFILE as IT_PROFILE
 from jurisdiction.cz import PROFILE as CZ_PROFILE
 
-PROFILES = {
+PROFILES: dict[str, dict[str, Any]] = {
     "eu": EU_PROFILE,
     "it": IT_PROFILE,
     "cz": CZ_PROFILE,
 }
 
 
-def get_profile(jurisdiction: str) -> dict:
+def get_profile(jurisdiction: str) -> dict[str, Any]:
     key = jurisdiction.lower()
     if key not in PROFILES:
         raise ValueError(

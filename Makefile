@@ -9,13 +9,16 @@ test:
 	$(PYTHON) -m unittest discover tests -v
 
 lint:
-	@if command -v ruff >/dev/null 2>&1; then ruff check capture evidence jurisdiction packaging tests webf.py; else echo "ruff is not installed; install the dev extra before release."; fi
+	@$(PYTHON) -m ruff --version >/dev/null 2>&1 || { echo "ruff is not installed; install the dev extra before release." >&2; exit 1; }
+	$(PYTHON) -m ruff check capture evidence jurisdiction packaging tests webf.py
 
 typecheck:
-	@if command -v mypy >/dev/null 2>&1; then mypy capture evidence jurisdiction packaging webf.py; else echo "mypy is not installed; install the dev extra before release."; fi
+	@$(PYTHON) -m mypy --version >/dev/null 2>&1 || { echo "mypy is not installed; install the dev extra before release." >&2; exit 1; }
+	$(PYTHON) -m mypy capture evidence jurisdiction packaging webf.py
 
 build:
-	@if $(PYTHON) -c 'import build' >/dev/null 2>&1; then $(PYTHON) -m build; else echo "build is not installed; install the dev extra before release."; fi
+	@$(PYTHON) -c 'import build' >/dev/null 2>&1 || { echo "build is not installed; install the dev extra before release." >&2; exit 1; }
+	$(PYTHON) -m build
 
 package-audit:
 	@set -eu; \

@@ -13,7 +13,7 @@ from cryptography.hazmat.backends import default_backend
 
 
 def resolve_dns(hostname: str) -> dict[str, Any]:
-    result: dict[str, list] = {
+    result: dict[str, Any] = {
         "A": [], "AAAA": [], "MX": [], "NS": [], "TXT": [],
     }
     errors: dict[str, str] = {}
@@ -64,6 +64,8 @@ def fetch_tls_cert(hostname: str, port: int = 443) -> dict[str, Any] | None:
             server_hostname=hostname,
         ) as sock:
             der_cert = sock.getpeercert(binary_form=True)
+        if not der_cert:
+            raise ValueError("TLS peer did not provide a certificate")
         return _parse_der_cert(der_cert, chain_verified=True)
     except ssl.SSLCertVerificationError as verify_exc:
         verify_error = str(verify_exc)
@@ -80,6 +82,8 @@ def fetch_tls_cert(hostname: str, port: int = 443) -> dict[str, Any] | None:
             server_hostname=hostname,
         ) as sock:
             der_cert = sock.getpeercert(binary_form=True)
+        if not der_cert:
+            raise ValueError("TLS peer did not provide a certificate")
         result = _parse_der_cert(der_cert, chain_verified=False)
         result["chain_verify_error"] = verify_error
         return result

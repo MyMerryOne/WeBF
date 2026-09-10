@@ -3,6 +3,7 @@ import unittest
 import zipfile
 import json
 import io
+import subprocess
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -201,6 +202,15 @@ class TestBuildVerifyScript(unittest.TestCase):
         self.assertNotIn("tsa_ca.pem", script)
         self.assertNotIn("grep -A 100", script)
 
+    def test_quotes_untrusted_tsa_url(self):
+        url = 'https://tsa.example/tsr"; touch /tmp/ssdlc-proof; echo "'
+        script = _build_verify_script({"tsa_url": url})
+        result = subprocess.run(
+            ["bash", "-n"], input=script, text=True, capture_output=True, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('echo "TSA: ' + url, script)
+
 
 class TestBuildVerifyScriptWindows(unittest.TestCase):
 
@@ -225,6 +235,11 @@ class TestBuildVerifyScriptWindows(unittest.TestCase):
         self.assertIn("tsa_trust.pem", script)
         self.assertIn("tsa_untrusted.pem", script)
         self.assertNotIn("tsa_ca.pem", script)
+
+    def test_quotes_untrusted_tsa_url(self):
+        url = "https://tsa.example/tsr'; Invoke-Expression 'Get-Date' #"
+        script = _build_verify_script_windows({"tsa_url": url})
+        self.assertIn("Write-Host ('TSA: ' + 'https://tsa.example/tsr''; Invoke-Expression ''Get-Date'' #')", script)
 
 
 class TestBuildVerificationReadme(unittest.TestCase):

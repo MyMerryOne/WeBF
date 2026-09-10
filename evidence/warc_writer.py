@@ -2,6 +2,7 @@
 import io
 import datetime
 import gzip
+from collections.abc import Sequence
 from urllib.parse import urlsplit
 from typing import Any
 
@@ -34,7 +35,7 @@ def build_warc(
     browser_result: dict[str, Any],
     operator: str,
     case_ref: str,
-    legal_captures: list[dict] = (),
+    legal_captures: Sequence[dict[str, Any]] = (),
 ) -> bytes:
     buf = io.BytesIO()
     writer = WARCWriter(buf, gzip=True)

@@ -1,7 +1,11 @@
 """Raw HTTP capture: status, headers, body, redirect chain."""
 import time
 from typing import Any
+from urllib.parse import urljoin
+
 import requests
+
+from capture.url_policy import validate_public_url
 
 
 TOOL_UA = (
@@ -11,33 +15,46 @@ TOOL_UA = (
 
 
 def capture_http(url: str, timeout: int = 30) -> dict[str, Any]:
+    validate_public_url(url)
     session = requests.Session()
     session.headers.update({"User-Agent": TOOL_UA})
 
     redirect_chain: list[dict] = []
-    ssl_verified = True
-    ssl_error: str | None = None
+    current_url = url
 
     start_ts = time.time()
-    try:
-        response = session.get(url, timeout=timeout, allow_redirects=True,
-                               stream=True, verify=True)
-    except requests.exceptions.SSLError as exc:
-        ssl_verified = False
-        ssl_error = str(exc)
-        session2 = requests.Session()
-        session2.headers.update({"User-Agent": TOOL_UA})
-        response = session2.get(url, timeout=timeout, allow_redirects=True,
-                                stream=True, verify=False)
-    elapsed_ms = int((time.time() - start_ts) * 1000)
+    # Disable automatic redirects: each Location target must pass the public
+    # address policy before it is allowed to receive a request.
+    for _ in range(10):
+        try:
+            response = session.get(
+                current_url,
+                timeout=timeout,
+                allow_redirects=False,
+                stream=True,
+                verify=True,
+            )
+        except requests.exceptions.SSLError as exc:
+            raise RuntimeError(
+                f"TLS certificate verification failed for capture target: {exc}"
+            ) from exc
 
-    for r in response.history:
-        redirect_chain.append({
-            "url": r.url,
-            "status_code": r.status_code,
-            "reason": r.reason,
-            "headers": dict(r.headers),
-        })
+        location = response.headers.get("Location")
+        if response.is_redirect and location:
+            redirect_chain.append({
+                "url": response.url,
+                "status_code": response.status_code,
+                "reason": response.reason,
+                "headers": dict(response.headers),
+            })
+            current_url = urljoin(current_url, location)
+            validate_public_url(current_url)
+            continue
+        break
+    else:
+        raise RuntimeError("redirect limit exceeded for capture target")
+
+    elapsed_ms = int((time.time() - start_ts) * 1000)
 
     raw_body: bytes = response.content
 
@@ -56,10 +73,8 @@ def capture_http(url: str, timeout: int = 30) -> dict[str, Any]:
         "content_length_header": response.headers.get("Content-Length"),
         "actual_body_bytes": len(raw_body),
         "raw_body": raw_body,
-        "ssl_verified": ssl_verified,
+        "ssl_verified": True,
     }
-    if ssl_error:
-        result["ssl_error"] = ssl_error
     return result
 
 

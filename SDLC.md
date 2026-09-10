@@ -18,6 +18,9 @@ make quality
 
 The gate runs deterministic tests, static checks, package building, and a repository package audit. The CI workflow runs it in a clean environment with the development extra installed. It does not by itself perform the dependency audit, SBOM generation, secret scan, live browser/network/TSA checks, or jurisdiction Trusted List validation. Those are separate CI or controlled validation activities and must not be represented as passed based only on a local `make quality` result.
 
+Required quality tools must be installed for the gate to pass; missing lint,
+type-check, or build tools are validation failures rather than successful skips.
+
 Changes affecting the CLI, manifest schema, package-member contract, verification scripts, report templates, or jurisdiction wording require a documentation update and focused regression coverage. New package members or verification rules require an update to `docs/package-contract.md`.
 
 ## Evidence and output handling

@@ -243,6 +243,7 @@ python -m unittest tests.test_manifest -v
 python -m unittest tests.test_jurisdiction -v
 python -m unittest tests.test_timestamper -v
 python -m unittest tests.test_bundler -v
+python -m unittest tests.test_http_raw -v
 ```
 
 ### What is tested
@@ -255,12 +256,23 @@ python -m unittest tests.test_bundler -v
 | `jurisdiction/` | `tests/test_jurisdiction.py` | stdlib only |
 | `evidence/timestamper.py` | `tests/test_timestamper.py` | `requests`, `pyasn1`, `pyasn1-modules` |
 | `packaging/bundler.py` | `tests/test_bundler.py` | stdlib only |
+| `capture/http_raw.py` and URL policy | `tests/test_http_raw.py` | `requests` |
 
 The deterministic test suite does not perform live browser, network, WHOIS, or
 TSA calls. Browser and full-capture validation require the optional runtime
-dependencies and controlled test targets. The timestamp test module imports its
-ASN.1 dependencies at module load time, so it is not safely skippable when those
-packages are absent.
+dependencies and controlled test targets. The HTTP capture tests use mocked
+responses and synthetic private destinations to verify TLS fail-closed behavior,
+redirect enforcement, credential rejection, and public-address policy without
+performing live network calls.
+
+Run the local SSDLC gate with:
+
+```sh
+make PYTHON=python quality
+```
+
+The selected Python environment must provide `ruff`, `mypy`, and `build`; missing
+tools fail the gate rather than being reported as successful skips.
 
 ---
 
@@ -278,7 +290,6 @@ packages are absent.
 | `click` | CLI interface | CLI |
 | `pyasn1` + `pyasn1-modules` | RFC 3161 TSR response parsing | Timestamp verification |
 
-
 ## Limitations and interpretation
 
 WeBF records technical observations and integrity relationships. A successful
@@ -287,16 +298,18 @@ by the operator, lawfully collected, or legally admissible. A valid RFC 3161
 imprint is distinct from certificate-chain validation, revocation checking,
 current Trusted List status, and qualified-service conclusions.
 
-The current manifest records provenance and limitations but does not yet provide
-structured status for every capture stage, a complete redirect chronology,
-early browser diagnostics, a trusted binding for the package-hash index, or a
-structured authorization and custody history. These gaps are tracked in
+Capture targets are restricted to HTTP(S) URLs resolving to public addresses,
+redirects are checked before each HTTP request and browser navigation, and TLS
+certificate failures do not produce normal evidence packages. The current
+manifest still does not provide structured status for every capture stage, a
+complete redirect chronology in the WARC, early browser diagnostics, a trusted
+binding for the package-hash index, or a structured authorization and custody
+history. These gaps are tracked in
 [IMPLEMENTATION_GAPS.md](IMPLEMENTATION_GAPS.md).
 
 Packages generated before the schema and terminology migration may contain
 schema `1.0` and the former tool name. They are historical outputs and must not
 be rewritten. New packages use schema `1.1` and current WeBF terminology.
----
 
 ## Frequently Asked Questions
 
