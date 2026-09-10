@@ -19,6 +19,8 @@ PROFILE = {
         "Under eIDAS Art. 41, electronic documents shall not be denied admissibility "
         "solely because they are in electronic form. A qualified electronic time stamp "
         "(Art. 42) carries a presumption of accuracy of the date and time it indicates "
-        "and of the integrity of the data to which it is bound."
+        "and of the integrity of the data to which it is bound, subject to independent "
+        "validation of the service's qualified status. This profile does not establish "
+        "that status from an endpoint URL or token alone."
     ),
 }

@@ -16,6 +16,16 @@ Report suspected vulnerabilities privately to the maintainer with the affected v
 
 Security-sensitive areas include URL handling, browser rendering, archive creation and extraction, path handling, timestamp verification, generated scripts, logging, and report generation.
 
+## Package and trust-material handling
+
+Treat `timestamp/tsa_trust.pem` and `timestamp/tsa_untrusted.pem` as case-sensitive trust configuration. Record their source, retrieval time, version or list reference, hashes, and validation scope with the case record. A token signer certificate, provider name, endpoint URL, or successful OpenSSL chain check does not by itself establish current qualified-service status.
+
+Package verification must reject unsafe archive member paths, duplicate names, missing declared members, malformed manifests, invalid hash lengths, missing primary WARC evidence, and digest mismatches. Do not extract an untrusted package without applying equivalent path-safety controls.
+
+The generated verification scripts are convenience tooling. Their output is technical verification evidence, not a determination of legal admissibility. Report timestamp imprint validity, certificate-chain validity, revocation/status checks, and Trusted List/service status separately.
+
+Historical packages and reports must remain unchanged. Preserve the original package and create a corrected or superseding package/report with provenance when interpretation or software behavior changes.
+
 ## Response and correction
 
 The maintainer should assess exploitability and impact on package integrity or interpretation, preserve the report, test the correction, and document affected versions. Existing capture packages must not be rewritten to apply a software correction.

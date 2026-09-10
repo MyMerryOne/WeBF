@@ -1,19 +1,21 @@
 # Next-Phase Remediation Plan
 
-This plan addresses the technical and Italian-proceeding gaps identified after the SDLC baseline checkpoint `83f77a6`. It strengthens verifiability and provenance without asserting legal admissibility. Each phase requires focused tests before the next phase begins.
+This plan addresses the technical and Italian-proceeding gaps identified after the SDLC baseline checkpoint `83f77a6`. It strengthens verifiability and provenance without asserting legal admissibility. Phase 1 package-integrity work is implemented in the current tree; the remaining phases are future work. Each phase requires focused tests before the next phase begins.
 
-## Phase 1: Package contract and strict verification
+## Phase 1: Package contract and strict verification — implemented
 
 **Goal:** Make every generated package member covered by one explicit, independently checkable integrity contract.
 
-- Define manifest schema version `1.1` and required fields.
-- The manifest now declares every package member, and `package_hashes.json` records SHA-256/SHA-512 values for every other member. Keep this index as secondary evidence until an external signature or second trusted binding protects the index itself.
-- Add package member inventory and duplicate-name checks before reading package content.
-- Reject missing or malformed `manifest.json`, `manifest.sha256`, required hashes, invalid hash lengths, missing primary captured artifact, unsafe paths, empty timestamp material, and incomplete required artifacts.
-- Make verification fail closed for missing manifest hashes and invalid JSON instead of warning and continuing.
-- Add tests for valid packages, malformed manifests, missing hashes, unexpected members, duplicate members, incomplete packages, and hash mismatches.
+- **Done:** Define manifest schema version `1.1` and required fields.
+- **Done:** Declare every package member and record SHA-256/SHA-512 values for every other member in `package_hashes.json`. Keep this index as secondary evidence until an external signature or second trusted binding protects the index itself.
+- **Done:** Add package-member inventory and duplicate-name checks before reading package content.
+- **Done:** Reject malformed manifests, missing hashes, invalid hash lengths, missing primary evidence, unsafe paths, and incomplete inventories.
+- **Done:** Make verification fail closed for missing manifest hashes and invalid JSON instead of warning and continuing.
+- **Done:** Add regression coverage for valid packages, malformed manifests, missing hashes, unexpected members, duplicate members, incomplete packages, and hash mismatches.
 
-**Acceptance:** A package verifies only when its manifest schema, member inventory, artifact hashes, timestamp status, and required files all satisfy the documented contract. Every failure returns a non-zero result with a specific message.
+**Acceptance:** Met for the implemented manifest, inventory, artifact-hash, and package-hash checks. Timestamp qualification, structured stage status, and external trust of the complete package index remain outside this completed phase.
+
+The current contract is documented in [docs/package-contract.md](package-contract.md), and the implementation is covered by [packaging/manifest.py](../packaging/manifest.py), [packaging/bundler.py](../packaging/bundler.py), `webf.py`, and the manifest/bundler/verification tests.
 
 ## Phase 2: Explicit capture status and provenance
 

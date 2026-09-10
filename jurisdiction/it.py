@@ -6,15 +6,17 @@ Hash requirements per DPCM 22/02/2013 (Regole tecniche in materia di
 generazione, apposizione e verifica delle firme elettroniche avanzate,
 qualificate e digitali): SHA-256 minimum.
 
-AgID-accredited Qualified Trust Service Providers (TSPs) for timestamps:
+Examples of providers that may appear in the applicable AgID/EU Trusted List
+for timestamp services (current status must be checked at review time):
   - Aruba PEC S.p.A.       https://ca.aruba.it/
   - InfoCert S.p.A.        https://www.infocert.it/
   - Namirial S.p.A.        https://www.namirial.com/
   - Actalis S.p.A.         https://www.actalis.it/
   - Poste Italiane S.p.A.  https://postecert.poste.it/
 
-For maximum evidential weight in Italian courts use a TSP on the AgID
-Trusted List (https://eidas.agid.gov.it/TL/TSL-IT.xml).
+Any qualification or current service status must be established against the
+applicable AgID/EU Trusted List and validation record; this configuration does
+not establish it (https://eidas.agid.gov.it/TL/TSL-IT.xml).
 """
 
 PROFILE = {
@@ -25,8 +27,8 @@ PROFILE = {
     # Aruba, InfoCert, and Namirial require a paid subscription and HTTP Basic
     # Auth credentials; add them here once credentials are available.
     "tsa_url": "http://timestamp.actalis.com",
-    "tsa_name": "Actalis S.p.A. (AgID-accredited TSP)",
-    # Ordered fallback list; all are AgID/eIDAS-qualified TSPs.
+    "tsa_name": "Actalis S.p.A. (configured endpoint; status requires validation)",
+    # Ordered fallback list; current qualification is not inferred here.
     # webf tries each in order and stops at the first success.
     # Endpoints verified 2026-08-21. Credentials marked where required.
     "tsa_qualified_endpoints": [
@@ -67,8 +69,8 @@ PROFILE = {
     "verbale_section": True,
 }
 
-# Ordered list of AgID-accredited TSA endpoints to try.
-# Verified 2026-08-21. Actalis is the only publicly accessible endpoint;
+# Ordered list of configured TSA endpoints to try.
+# Endpoint reachability was checked 2026-08-21. Actalis is the only publicly accessible endpoint;
 # the others require a paid subscription with HTTP Basic Auth credentials.
 AGID_TSA_ENDPOINTS = [
     ("Actalis S.p.A.", "http://timestamp.actalis.com"),

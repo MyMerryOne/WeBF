@@ -2,6 +2,8 @@
 
 A Python CLI tool that captures public websites and produces integrity-verifiable technical capture packages for documented review in EU and Italian proceedings.
 
+Current packages use manifest schema `1.1`. The package and verification contract is documented in [docs/package-contract.md](docs/package-contract.md); known limitations are tracked in [IMPLEMENTATION_GAPS.md](IMPLEMENTATION_GAPS.md).
+
 ## Legal Standards
 
 | Jurisdiction | Legal framework | TSA |
@@ -23,7 +25,7 @@ A Python CLI tool that captures public websites and produces integrity-verifiabl
 
 - Python ≥ 3.10
 - For full capture: Playwright Chromium, and all packages in `requirements.txt`
-- For core tests only: Python stdlib + `click` + `requests`
+- For the complete test suite: install the dependencies from `requirements.txt`; timestamp tests require `pyasn1` and `pyasn1-modules`.
 
 ---
 
@@ -31,19 +33,19 @@ A Python CLI tool that captures public websites and produces integrity-verifiabl
 
 ### 1 — Install Python dependencies
 
-```powershell
+```sh
 pip install -r requirements.txt
 ```text
 
 ### 2 — Install Playwright browser (required for screenshot, PDF, and rendered HTML capture)
 
-```powershell
+```sh
 playwright install chromium
 ```
 
 ### 3 — (Optional) Verify the installation
 
-```powershell
+```sh
 python webf.py --version
 ```
 
@@ -53,47 +55,61 @@ python webf.py --version
 
 ### Capture a web page
 
-```powershell
-# General EU capture (eIDAS profile, FreeTSA)
-python webf.py capture https://example.com `
-  --operator "Paolo Romagnoli" `
-  --case-ref "CASE-2026-001" `
-  --notes "Homepage as of August 2026" `
+```sh
+# General EU capture (eIDAS profile, configured TSA)
+python webf.py capture https://example.com \
+  --operator "Paolo Romagnoli" \
+  --case-ref "CASE-2026-001" \
+  --notes "Homepage as of August 2026" \
   --jurisdiction eu
 
-# Italian capture (CAD profile, Aruba AgID-accredited TSA)
-python webf.py capture https://www.governo.it `
-  --operator "Paolo Romagnoli" `
-  --jurisdiction it `
-  --operator-role "Consulente Tecnico d'Ufficio" `
+# Italian capture (CAD profile)
+python webf.py capture https://www.governo.it \
+  --operator "Paolo Romagnoli" \
+  --jurisdiction it \
+  --operator-role "Consulente Tecnico d'Ufficio" \
   --operator-cf "RMGPLA80A01H501Z"
 
 # Czech capture (Act 297/2016 profile)
-python webf.py capture https://www.mvcr.cz `
-  --operator "Paolo Romagnoli" `
-  --jurisdiction cz `
+python webf.py capture https://www.mvcr.cz \
+  --operator "Paolo Romagnoli" \
+  --jurisdiction cz \
   --case-ref "CZ-2026-042"
 
-# Skip browser rendering (faster; HTTP + WARC only, no screenshot or PDF)
-python webf.py capture https://example.com `
-  --operator "Paolo Romagnoli" `
+# Skip browser rendering (HTTP + WARC only, no screenshot or PDF)
+python webf.py capture https://example.com \
+  --operator "Paolo Romagnoli" \
   --no-browser
 
-# Skip automatic legal sub-page discovery while retaining the main capture
-python webf.py capture https://example.com `
-  --operator "Paolo Romagnoli" `
+# Skip automatic legal sub-page discovery
+python webf.py capture https://example.com \
+  --operator "Paolo Romagnoli" \
   --no-legal
 
-# Use a custom TSA (e.g. a paid InfoCert qualified TSA for Italy)
-python webf.py capture https://example.com `
-  --operator "Paolo Romagnoli" `
-  --jurisdiction it `
+# Limit automatic legal-page discovery
+python webf.py capture https://example.com \
+  --operator "Paolo Romagnoli" \
+  --max-legal-pages 5
+
+# Use a custom TSA endpoint
+python webf.py capture https://example.com \
+  --operator "Paolo Romagnoli" \
+  --jurisdiction it \
   --tsa-url "https://sello.infocert.it/tsa/tsa.shtml"
 
 # Write output to a specific directory
+python webf.py capture https://example.com \
+  --operator "Paolo Romagnoli" \
+  --output-dir "./captures/Case001"
+```
+
+PowerShell uses the same options with the backtick continuation character:
+
+```powershell
 python webf.py capture https://example.com `
   --operator "Paolo Romagnoli" `
-  --output-dir "C:\Evidence\2026\Case001"
+  --jurisdiction eu `
+  --no-browser
 ```
 
 For the `it` profile, the capture requires the explicit TSA trust materials
@@ -103,15 +119,22 @@ the package inventory. Their presence and cryptographic validity do not, by
 themselves, establish current AgID qualification; that status must be documented
 against the applicable Trusted List at review time.
 
+The capture command requires a successful raw HTTP capture and WARC build. DNS,
+WHOIS, TLS, browser rendering, legal-page discovery, modal capture, report
+generation, and timestamping have separate failure behavior. Network or browser
+failures may produce a partial package; HTTP or primary-WARC failure aborts the
+capture. The current manifest does not yet expose structured status for every
+stage, so review the console output, report, and package contents together.
+
 ### Verify a capture package
 
-```powershell
-python webf.py verify .\captures\webf_20260821_100130_example.com.zip
+```sh
+python webf.py verify ./captures/webf_20260821_100130_example.com.zip
 ```
 
 This re-hashes every file and compares against the manifest. For cryptographic signature verification of the RFC 3161 token, also run the script inside the package:
 
-```powershell
+```sh
 # Linux / macOS
 bash timestamp/verify.sh
 
@@ -127,8 +150,8 @@ replace an external signature or establish legal admissibility.
 
 ### Inspect a package without extracting
 
-```powershell
-python webf.py info .\captures\webf_20260821_100130_example.com.zip
+```sh
+python webf.py info ./captures/webf_20260821_100130_example.com.zip
 ```
 
 ---
@@ -168,6 +191,10 @@ webf_YYYYMMDD_HHMMSS_<domain>.zip
     └── verify.ps1             ← OpenSSL verification script (Windows/PowerShell)
 ```
 
+Browser-rendered files, legal-page files, and TSA trust files are conditional;
+they are not present in every package. See [docs/package-contract.md](docs/package-contract.md)
+for the complete required and conditional member contract.
+
 `timestamp/tsa_trust.pem` is intentionally not generated or included automatically.
 It must be obtained from the TSA's official certificate documentation or the
 applicable AgID/EU Trusted List, with its source, version, retrieval time, and
@@ -198,18 +225,18 @@ certificate-chain, revocation, service-status, and Trusted List validation.
 
 ## Running Tests
 
-The test suite uses only Python's built-in `unittest` framework. No additional test dependencies are required.
+The test suite uses Python's built-in `unittest` framework. Install the dependencies from `requirements.txt` before running the complete suite.
 
 ### Run all tests
 
-```powershell
-cd c:\Users\paolo.romagnoli\Claude_Folder\WeBF
+```sh
+cd /path/to/WeBF
 python -m unittest discover tests -v
 ```
 
 ### Run a specific test module
 
-```powershell
+```sh
 python -m unittest tests.test_hasher -v
 python -m unittest tests.test_der_helpers -v
 python -m unittest tests.test_manifest -v
@@ -226,10 +253,14 @@ python -m unittest tests.test_bundler -v
 | `evidence/der_helpers.py` | `tests/test_der_helpers.py` | stdlib only |
 | `packaging/manifest.py` | `tests/test_manifest.py` | stdlib only |
 | `jurisdiction/` | `tests/test_jurisdiction.py` | stdlib only |
-| `evidence/timestamper.py` | `tests/test_timestamper.py` | `requests` (installed) |
+| `evidence/timestamper.py` | `tests/test_timestamper.py` | `requests`, `pyasn1`, `pyasn1-modules` |
 | `packaging/bundler.py` | `tests/test_bundler.py` | stdlib only |
 
-Tests that require `pyasn1` (TSR parsing) are skipped automatically if the library is not installed. All other tests run without any pip installations beyond `requests`.
+The deterministic test suite does not perform live browser, network, WHOIS, or
+TSA calls. Browser and full-capture validation require the optional runtime
+dependencies and controlled test targets. The timestamp test module imports its
+ASN.1 dependencies at module load time, so it is not safely skippable when those
+packages are absent.
 
 ---
 
@@ -247,6 +278,24 @@ Tests that require `pyasn1` (TSR parsing) are skipped automatically if the libra
 | `click` | CLI interface | CLI |
 | `pyasn1` + `pyasn1-modules` | RFC 3161 TSR response parsing | Timestamp verification |
 
+
+## Limitations and interpretation
+
+WeBF records technical observations and integrity relationships. A successful
+hash check does not establish that captured content is true, complete, authored
+by the operator, lawfully collected, or legally admissible. A valid RFC 3161
+imprint is distinct from certificate-chain validation, revocation checking,
+current Trusted List status, and qualified-service conclusions.
+
+The current manifest records provenance and limitations but does not yet provide
+structured status for every capture stage, a complete redirect chronology,
+early browser diagnostics, a trusted binding for the package-hash index, or a
+structured authorization and custody history. These gaps are tracked in
+[IMPLEMENTATION_GAPS.md](IMPLEMENTATION_GAPS.md).
+
+Packages generated before the schema and terminology migration may contain
+schema `1.0` and the former tool name. They are historical outputs and must not
+be rewritten. New packages use schema `1.1` and current WeBF terminology.
 ---
 
 ## Frequently Asked Questions

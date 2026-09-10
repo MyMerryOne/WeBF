@@ -6,8 +6,9 @@ Based on:
   - Act No. 99/1963 Coll. — Civil Procedure Code (§79, §125)
   - Act No. 300/2008 Coll. — Electronic actions and authorised conversion
 
-Czech courts accept qualified electronic timestamps from any TSP on the
-EU Trusted List. Any EU-TSL-listed TSA is valid.
+The applicable EU Trusted List and current service status must be checked for
+any qualified-timestamp conclusion. This profile does not establish that status
+from an endpoint URL or token alone.
 """
 
 PROFILE = {
@@ -31,6 +32,7 @@ PROFILE = {
         "právní účinky a přípustnost jako důkazu v soudním nebo správním řízení "
         "pouze proto, že je v elektronické podobě. Kvalifikované elektronické "
         "časové razítko (čl. 42 eIDAS) zakládá právní domněnku přesnosti data "
-        "a času a integrity dat."
+      "a času a integrity dat po samostatném ověření statusu kvalifikované služby. "
+      "Tento profil takový status nepotvrzuje pouze URL koncového bodu nebo tokenem."
     ),
 }
