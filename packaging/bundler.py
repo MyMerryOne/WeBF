@@ -8,6 +8,13 @@ from collections.abc import Sequence
 from typing import Any
 
 
+PACKAGE_BINDING_MEMBERS = {
+    "timestamp/package-index-request.tsq",
+    "timestamp/package-index-response.tsr",
+    "timestamp/package-index-info.json",
+}
+
+
 def assemble_package(
     manifest_bytes: bytes,
     manifest_hashes: dict[str, str],
@@ -25,6 +32,7 @@ def assemble_package(
     legal_captures: Sequence[dict[str, Any]] = (),
     timestamp_trust_pem: bytes = b"",
     timestamp_untrusted_pem: bytes = b"",
+    package_binding_result: dict[str, Any] | None = None,
 ) -> bytes:
     buf = io.BytesIO()
     members: dict[str, bytes] = {}
@@ -130,6 +138,22 @@ def assemble_package(
     ).encode()
     members["package_hashes.json"] = package_hashes_bytes
     members["package_hashes.sha256"] = hashlib.sha256(package_hashes_bytes).hexdigest().encode()
+
+    if package_binding_result:
+        members["timestamp/package-index-request.tsq"] = package_binding_result.get(
+            "tsq_bytes", b""
+        )
+        members["timestamp/package-index-response.tsr"] = package_binding_result.get(
+            "tsr_bytes", b""
+        )
+        binding_info = {
+            "tsa_url": package_binding_result.get("tsa_url", ""),
+            "data_hash_sha256": package_binding_result.get("data_hash_hex", ""),
+            **package_binding_result.get("parsed", {}),
+        }
+        members["timestamp/package-index-info.json"] = json.dumps(
+            binding_info, indent=2, ensure_ascii=False
+        ).encode()
 
     with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, data in members.items():

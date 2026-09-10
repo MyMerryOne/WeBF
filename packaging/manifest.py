@@ -39,6 +39,11 @@ def expected_package_members(
         members.add("capture/legal/legal_index.json")
     if timestamp_trust_material:
         members.update({"timestamp/tsa_trust.pem", "timestamp/tsa_untrusted.pem"})
+    members.update({
+        "timestamp/package-index-request.tsq",
+        "timestamp/package-index-response.tsr",
+        "timestamp/package-index-info.json",
+    })
     return sorted(members)
 def build_manifest(
     url: str,

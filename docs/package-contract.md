@@ -28,6 +28,9 @@ timestamp/response.tsr
 timestamp/timestamp_info.json
 timestamp/verify.sh
 timestamp/verify.ps1
+timestamp/package-index-request.tsq
+timestamp/package-index-response.tsr
+timestamp/package-index-info.json
 capture/page.warc.gz
 capture/http_response_raw.bin
 ```
@@ -44,7 +47,7 @@ The manifest `package_members` list is the authoritative inventory for schema `1
 
 `manifest.sha256` is a detached SHA-256 digest of the exact `manifest.json` bytes. The manifest contains SHA-256 and SHA-512 values for captured artifacts.
 
-`package_hashes.json` contains SHA-256 and SHA-512 values for every other ZIP member, including `manifest.json`, reports, scripts, timestamp material, and network data. `package_hashes.sha256` is a detached SHA-256 digest of the exact package-hash index bytes. The index is a secondary comparison mechanism and is not itself included in the RFC 3161 manifest imprint; an external signature or second trusted binding is required when the index must be independently trusted against an attacker who can replace both the index and a member.
+`package_hashes.json` contains SHA-256 and SHA-512 values for every substantive ZIP member, including `manifest.json`, reports, scripts, timestamp material, and network data. The three `timestamp/package-index-*` members are excluded to avoid circular hashing. `package_hashes.sha256` is a detached SHA-256 digest of the exact package-hash index bytes. The package-index RFC 3161 token is bound to the exact `package_hashes.json` bytes; changing the index or any indexed member therefore invalidates package-wide timestamp verification. An external signature adapter remains a separate release control and is not implied by this timestamp.
 
 ## Timestamp verification layers
 
@@ -66,6 +69,7 @@ Independent verification should:
 4. Recompute artifact and package-member hashes.
 5. Confirm that the primary WARC exists and is bound to the manifest.
 6. Check timestamp material and RFC 3161 imprint/nonce relationships.
+7. Check the package-index timestamp binding against the exact `package_hashes.json` bytes.
 
 Any failed required check produces a non-zero verification result. A valid hash proves only that the checked bytes match the recorded digest. It does not prove that the content is true, complete, authored by the operator, lawfully collected, or legally admissible.
 

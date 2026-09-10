@@ -83,6 +83,27 @@ class TestAssemblePackage(unittest.TestCase):
             names = set(zf.namelist()) - {"package_hashes.json", "package_hashes.sha256"}
         self.assertEqual(set(index), names)
 
+    def test_package_binding_members_are_added_after_index(self):
+        data = _default_package(
+            package_binding_result={
+                "tsq_bytes": b"binding request",
+                "tsr_bytes": b"binding response",
+                "tsa_url": "https://freetsa.org/tsr",
+                "data_hash_hex": "a" * 64,
+                "parsed": {"status": "granted"},
+            }
+        )
+        with zipfile.ZipFile(io.BytesIO(data), "r") as zf:
+            index = json.loads(zf.read("package_hashes.json"))
+            names = set(zf.namelist())
+        binding_names = {
+            "timestamp/package-index-request.tsq",
+            "timestamp/package-index-response.tsr",
+            "timestamp/package-index-info.json",
+        }
+        self.assertTrue(binding_names.issubset(names))
+        self.assertTrue(binding_names.isdisjoint(index))
+
     def test_report_html_present(self):
         self.assertIn("report/capture_report.html", self._names())
         self.assertIn("report/capture_report.pdf", self._names())

@@ -152,6 +152,16 @@ class TestVerifyCommand(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("Timestamp files are empty", result.output)
 
+    def test_missing_package_binding_fails(self):
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            package = pathlib.Path("package.zip")
+            self._write_package(package, hashlib.sha512(b"primary evidence").hexdigest())
+            result = runner.invoke(cli, ["verify", str(package)])
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("Package-wide timestamp binding is missing", result.output)
+
     def test_missing_manifest_hash_fails_closed(self):
         runner = CliRunner()
         with runner.isolated_filesystem():

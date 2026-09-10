@@ -9,6 +9,7 @@ Usage:
 """
 import datetime
 import hashlib
+import io
 import json
 import pathlib
 import re
@@ -120,6 +121,11 @@ def _package_hash_errors(archive: zipfile.ZipFile, names: list[str]) -> list[str
         return ["package_hashes.json must contain an object"]
 
     package_names = set(names) - {index_name, detached_name}
+    package_names -= {
+        "timestamp/package-index-request.tsq",
+        "timestamp/package-index-response.tsr",
+        "timestamp/package-index-info.json",
+    }
     indexed_names = set(index)
     for name in sorted(package_names - indexed_names):
         errors.append(f"package hash missing: {name}")
@@ -214,6 +220,7 @@ def capture_cmd(
     from capture.browser import capture_legal_modals
     from evidence.hasher import hash_bytes, hash_artifacts
     from evidence.timestamper import request_timestamp, verify_timestamp_chain
+    from evidence.timestamper import validate_timestamp_response
     from evidence.warc_writer import build_warc
     from packaging.manifest import build_manifest, serialize_manifest
     from packaging.report import render_html_report, render_pdf_report
@@ -550,6 +557,56 @@ def capture_cmd(
         timestamp_untrusted_pem=timestamp_untrusted_pem,
     )
 
+    # Bind the complete package-hash index separately from the manifest token.
+    # The binding files are added after index creation to avoid circular hashing.
+    with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as preview:
+        package_index_bytes = preview.read("package_hashes.json")
+    package_binding_result: dict = {}
+    try:
+        package_binding_result = request_timestamp(package_index_bytes, effective_tsa)
+        binding_trust = verify_timestamp_chain(
+            package_binding_result.get("tsq_bytes", b""),
+            package_binding_result.get("tsr_bytes", b""),
+            timestamp_trust_pem,
+            timestamp_untrusted_pem,
+        )
+        binding_validation = validate_timestamp_response(
+            package_binding_result.get("tsq_bytes", b""),
+            package_binding_result.get("tsr_bytes", b""),
+            package_index_bytes,
+        )
+        binding_status = package_binding_result.get("parsed", {}).get("status")
+        if (
+            binding_status not in ("granted", "grantedWithMods")
+            or not binding_trust.get("verified")
+            or not binding_validation.get("imprint_valid")
+            or not binding_validation.get("nonce_valid")
+        ):
+            raise RuntimeError("package index timestamp validation failed")
+    except Exception as exc:
+        _echo_warn(f"Package-wide integrity binding unavailable: {exc}")
+        package_binding_result = {}
+
+    zip_bytes = assemble_package(
+        manifest_bytes=manifest_bytes,
+        manifest_hashes=manifest_hashes,
+        report_html=report_html,
+        report_pdf=report_pdf,
+        warc_bytes=warc_bytes,
+        screenshot_full=browser_result.get("screenshot_full_png", b""),
+        screenshot_vp=browser_result.get("screenshot_viewport_png", b""),
+        rendered_html=browser_result.get("rendered_html", b""),
+        page_pdf=browser_result.get("pdf_bytes", b""),
+        http_raw_bytes=raw_http_bytes,
+        network_result=network_result,
+        timestamp_result=timestamp_result,
+        artifact_hashes=artifact_hashes,
+        legal_captures=legal_captures,
+        timestamp_trust_pem=timestamp_trust_pem,
+        timestamp_untrusted_pem=timestamp_untrusted_pem,
+        package_binding_result=package_binding_result or None,
+    )
+
     out_dir = pathlib.Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     pkg_name = _package_name(url, start_time)
@@ -625,6 +682,43 @@ def verify_cmd(package_path: str) -> None:
         for error in package_hash_errors:
             _echo_err(f"Package hash index: {error}")
         all_ok = all_ok and not package_hash_errors
+
+        # The package index is separately timestamped because the manifest
+        # timestamp cannot cover members created after the manifest itself.
+        binding_names = {
+            "timestamp/package-index-request.tsq",
+            "timestamp/package-index-response.tsr",
+            "timestamp/package-index-info.json",
+        }
+        if not binding_names.issubset(names):
+            _echo_err("Package-wide timestamp binding is missing.")
+            all_ok = False
+        elif "package_hashes.json" in names:
+            from evidence.timestamper import (
+                parse_timestamp_response,
+                validate_timestamp_response,
+            )
+
+            binding_tsq = zf.read("timestamp/package-index-request.tsq")
+            binding_tsr = zf.read("timestamp/package-index-response.tsr")
+            package_index = zf.read("package_hashes.json")
+            if not binding_tsq or not binding_tsr:
+                _echo_err("Package-wide timestamp binding files are empty.")
+                all_ok = False
+            else:
+                binding_status = parse_timestamp_response(binding_tsr).get("status")
+                binding_validation = validate_timestamp_response(
+                    binding_tsq, binding_tsr, package_index
+                )
+                if (
+                    binding_status in ("granted", "grantedWithMods")
+                    and binding_validation.get("imprint_valid")
+                    and binding_validation.get("nonce_valid")
+                ):
+                    _echo_ok("Package-hash index timestamp binding matches.")
+                else:
+                    _echo_err("Package-hash index timestamp binding does not match.")
+                    all_ok = False
 
         # Verify manifest hash
         stored_sha256 = ""
